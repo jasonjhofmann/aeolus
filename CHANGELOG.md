@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Specification v2.4 (2026-06-05)
+- **Corrected the ERV filtration assumption.** The installed **Broan ERV110T** (discontinued) ships with only a foam pre-filter (~MERV 1–2; optional MERV 8) → effectively no PM2.5/allergen filtration. So the ERV does **not** get a relaxed PM-veto threshold; it's a PM-import path gated as strictly as unfiltered infiltration. Its advantage over exhaust is being *balanced* (no forced infiltration), not filtration. To earn the relaxed threshold: add an external inline MERV-13+ filter box on the supply (mind static pressure), or lean on the room HEPA purifiers (model ERV PM import vs. purifier CADR headroom). `filter_efficiency` clarified as the actual per-path value (foam≈0 / MERV8≈0.2 / MERV13≈0.5 / HEPA≈0.99).
+
 ### Changed — Specification v2.3 (2026-06-05)
 - **FR-G3 upgraded to a per-pathway, filter-aware veto.** The veto sensor is assignable per outdoor-air influence (ERV intake vs. infiltration point vs. regional), and the trip quantity is the *estimated indoor PM contribution* = `outdoor_PM × (1 − filter_efficiency)` — so a filtered ERV tolerates higher outdoor PM than unfiltered infiltration. FR-C4 gains a per-actuator AQ source + filter efficiency.
 - Reference deployment: 3 particulate sensors — Western Trails AirVisual (regional, published→API→HA), a 2nd AirVisual at the ERV intake, a PurpleAir at the Primary Bedroom sliding door. (PurpleAir PMS5003 humidity-correction note.)
