@@ -1,9 +1,9 @@
 # Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
-**Requirements Specification — v2.5**
+**Requirements Specification — v2.6**
 
 | | |
 |---|---|
-| **Status** | Decisions resolved (§7); ready to scaffold the v0.1 MVP. No implementation yet. |
+| **Status** | v0.1 + early v1.1 (induced edges, re-arm) **built, tested (69 tests, `mypy --strict`), deployed** to the author's HA. Silver + Platinum rules complete; Bronze 17/18 (only `brands` art pending). |
 | **Build target** | HA Integration Quality Scale — **Silver** |
 | **Architected for** | **Platinum** |
 | **Domain** | `aeolus` |
@@ -103,6 +103,7 @@ dC/dt = −M(u)·(C − C_out·𝟙) + g/V
 - **FR-L3 Strategy escalation (canonical use case)**: if a space is over target with its **direct** actuators active but **slope shows non-convergence** (FR-S3), escalate to **induced** actuators whose source space is currently low (FR-X3).
 - **FR-L4** Variable drive: proportional speed/preset where supported; on/off otherwise.
 - **FR-L5** Transport-lag aware: **min on/off**, post-actuation **settle window**, anti-windup — prevents hunting in a cross-coupled, dead-time system.
+- **FR-L5b Re-arm interval (self-auto-off loads)**: for an actuator whose load auto-offs internally while its switch keeps reporting `on` (e.g. a bath fan with a built-in timer that the relay can't observe), re-send the ON command at a configurable per-actuator interval while the space still demands and no override is active. Default off (normal idempotent control). *Motivating case: the Primary-Bath toilet exhaust, whose Savant switch holds `on` through the fan's ~15–30 min hardware auto-off; the legacy automation re-armed it every 14 min.*
 - **FR-L6** Per-space mode: `manage` / `monitor-only` / `off`.
 - **FR-L7 Manual-override yield**: detect external changes to a managed actuator, mark `overridden`, yield for a configurable window, then resume.
 

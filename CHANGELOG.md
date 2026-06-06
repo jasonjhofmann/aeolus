@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   parsing; `command_actuator` gained a `_send_command` helper + `last_command_sent`
   cadence stamp. Covered by `tests/test_rearm.py` (re-send / too-soon / no-interval /
   override-suppressed) → **69 tests, mypy --strict clean**.
+- **Spec:** `REQUIREMENTS.md` → **v2.6** (adds **FR-L5b** Re-arm interval; status line updated to reflect built/tested/deployed reality).
 
 ### Added/Changed — Silver + Platinum rules complete (2026-06-05)
 - **entity-unavailable + log-when-unavailable:** the Space CO₂ sensor + status binary sensors report `unavailable` when all of a space's CO₂ sources drop; the engine logs once per availability transition (warning on loss, info on recovery). Fixed a latent EMA-restore bug surfaced by this (seed now applies only when not already live, with a real timestamp → restart continuity actually blends instead of re-initializing).
