@@ -35,7 +35,7 @@
             "aggregation": "How to combine multiple sensors: Mean = average; Median = ignores a single outlier; Min/Max = best / worst-case.",
             "target_ppm": "Ventilation stops once the zone reaches this. ~800 ppm is good indoor air; fresh outdoor air is ~420 ppm.",
             "high_ppm": "Ventilation starts when the zone rises above this. Must be higher than the target — the gap between them is the deadband that prevents short-cycling.",
-            "volume_ft3": "Optional. Used for air-change-rate estimates. Leave blank if you don't know it.",
+            "volume_ft3": "Optional, and currently NOT used. Reserved for the planned occupancy/generation (equilibrium-CO₂) estimate. The air-change-rate readout is gap-normalized and does not need volume.",
             "outdoor_aq_entity": "Optional. A PM2.5 sensor measuring this zone's outdoor air. When it's high, Aeolus won't pull outdoor air in.",
             "outdoor_aq_threshold": "Optional. Block outdoor-air ventilation when the outdoor PM sensor exceeds this value."
           }
@@ -59,7 +59,7 @@
             "aggregation": "How to combine multiple sensors: Mean = average; Median = ignores a single outlier; Min/Max = best / worst-case.",
             "target_ppm": "Ventilation stops once the zone reaches this. ~800 ppm is good indoor air; fresh outdoor air is ~420 ppm.",
             "high_ppm": "Ventilation starts when the zone rises above this. Must be higher than the target.",
-            "volume_ft3": "Optional. Used for air-change-rate estimates.",
+            "volume_ft3": "Optional, currently not used (reserved for the planned generation/equilibrium-CO₂ estimate). The ACH readout is gap-normalized — volume-free.",
             "outdoor_aq_entity": "Optional. A PM2.5 sensor measuring this zone's outdoor air.",
             "outdoor_aq_threshold": "Optional. Block outdoor-air ventilation when the outdoor PM sensor exceeds this value."
           }
