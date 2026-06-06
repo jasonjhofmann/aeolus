@@ -75,6 +75,9 @@ class Actuator:
     # reporting `on` (e.g. the Primary-Bath toilet fan). When set, the engine
     # re-sends ON this often while still demanded. None = normal idempotent control.
     rearm_interval: timedelta | None = None
+    # Fan on-speed (FR-L4b): fans only. % speed Aeolus sets when it turns the fan
+    # on (the fan quantizes to its nearest step). None = leave at the fan's default.
+    on_speed_pct: int | None = None
 
 
 @dataclass(slots=True)

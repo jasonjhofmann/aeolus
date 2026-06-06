@@ -80,7 +80,8 @@
             "mechanism": "How it moves air",
             "served_spaces": "Spaces it ventilates",
             "filter_efficiency": "Intake filter efficiency (0–1)",
-            "rearm_interval": "Re-arm interval (minutes)"
+            "rearm_interval": "Re-arm interval (minutes)",
+            "on_speed_pct": "Fan speed when on (%)"
           },
           "data_description": {
             "name": "A friendly name for this device.",
@@ -88,7 +89,8 @@
             "mechanism": "Balanced = ERV/HRV, neutral pressure. Supply = pushes outdoor air in. Exhaust = pulls air out (depressurizes the home). Transfer = moves air between rooms. Window = an opener/cover.",
             "served_spaces": "Which Space(s) this device ventilates — Aeolus runs it when one of them needs fresh air. (Create Spaces first; they appear in this list.)",
             "filter_efficiency": "How well this device's intake filters fine particles: 0 = none/foam, ~0.5 = MERV-13, 0.9+ = HEPA. A filtered intake is allowed to run when outdoor air is dirtier.",
-            "rearm_interval": "For a fan/switch whose load auto-offs on its own while the switch keeps reporting 'on', re-send the ON command this often (minutes) while still needed. 0 = off. Set just under the hardware auto-off — e.g. 14 for a fan that auto-offs at ~15–30 min."
+            "rearm_interval": "For a fan/switch whose load auto-offs on its own while the switch keeps reporting 'on', re-send the ON command this often (minutes) while still needed. 0 = off. Set just under the hardware auto-off — e.g. 14 for a fan that auto-offs at ~15–30 min.",
+            "on_speed_pct": "Fans only — the speed Aeolus sets when it turns this fan on (0 = leave at the fan's default). The fan snaps to its nearest step, e.g. a 5-speed range hood → 20/40/60/80/100%."
           }
         },
         "reconfigure": {
@@ -100,7 +102,8 @@
             "mechanism": "How it moves air",
             "served_spaces": "Spaces it ventilates",
             "filter_efficiency": "Intake filter efficiency (0–1)",
-            "rearm_interval": "Re-arm interval (minutes)"
+            "rearm_interval": "Re-arm interval (minutes)",
+            "on_speed_pct": "Fan speed when on (%)"
           },
           "data_description": {
             "name": "A friendly name for this device.",
@@ -108,7 +111,8 @@
             "mechanism": "Balanced = ERV/HRV, neutral pressure. Supply = pushes outdoor air in. Exhaust = pulls air out. Transfer = moves air between rooms. Window = an opener/cover.",
             "served_spaces": "Which Space(s) this device ventilates.",
             "filter_efficiency": "Intake fine-particle filtration: 0 = none/foam, ~0.5 = MERV-13, 0.9+ = HEPA.",
-            "rearm_interval": "Re-send the ON command this often (minutes) for a load that auto-offs internally. 0 = off. ~14 for the Primary-Bath toilet fan."
+            "rearm_interval": "Re-send the ON command this often (minutes) for a load that auto-offs internally. 0 = off. ~14 for the Primary-Bath toilet fan.",
+            "on_speed_pct": "Fans only — % speed Aeolus sets on turn-on (0 = fan default). Snaps to the fan's step."
           }
         }
       }

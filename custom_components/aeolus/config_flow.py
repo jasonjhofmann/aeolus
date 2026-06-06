@@ -29,6 +29,7 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
+    CONF_ON_SPEED_PCT,
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
     CONF_REARM_INTERVAL,
@@ -172,6 +173,15 @@ def _actuator_schema(
             vol.Optional(
                 CONF_REARM_INTERVAL, default=d.get(CONF_REARM_INTERVAL, 0)
             ): vol.All(vol.Coerce(float), vol.Range(min=0, max=120)),
+            # Fan on-speed (FR-L4b): fans only. % speed to set on turn-on. 0 = default.
+            vol.Optional(
+                CONF_ON_SPEED_PCT, default=d.get(CONF_ON_SPEED_PCT, 0)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=100, step=5, mode=selector.NumberSelectorMode.SLIDER,
+                    unit_of_measurement="%",
+                )
+            ),
             # Per-pathway outdoor-AQ source (FR-G3, v2.3): the PM sensor at THIS
             # actuator's intake (e.g. the AirVisual at the ERV intake). Falls back
             # to the space's sensor when unset.

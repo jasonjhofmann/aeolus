@@ -20,6 +20,7 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
+    CONF_ON_SPEED_PCT,
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
     CONF_REARM_INTERVAL,
@@ -93,6 +94,7 @@ def _parse_subentries(
             )
         elif sub.subentry_type == SUBENTRY_TYPE_ACTUATOR:
             rearm_min = data.get(CONF_REARM_INTERVAL)
+            on_speed = data.get(CONF_ON_SPEED_PCT)
             actuators[sub_id] = Actuator(
                 subentry_id=sub_id,
                 name=sub.title,
@@ -100,6 +102,7 @@ def _parse_subentries(
                 mechanism=Mechanism(data.get(CONF_MECHANISM, Mechanism.BALANCED)),
                 filter_efficiency=float(data.get(CONF_FILTER_EFFICIENCY, 0.0)),
                 outdoor_aq_entity=data.get(CONF_OUTDOOR_AQ_ENTITY),
+                on_speed_pct=int(on_speed) if on_speed else None,
                 rearm_interval=(
                     timedelta(minutes=float(rearm_min)) if rearm_min else None
                 ),

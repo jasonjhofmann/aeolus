@@ -271,16 +271,19 @@ class AeolusEngine:
         """Fire the on/off service for an actuator and stamp the send time."""
         self._act_runtime[act.subentry_id].last_command_sent = now
         domain = act.entity_id.split(".", 1)[0]
+        data: dict[str, int | str] = {"entity_id": act.entity_id}
         if domain == "cover":
             service = SERVICE_OPEN_COVER if turn_on else SERVICE_CLOSE_COVER
             service_domain = "cover"
         else:  # fan / switch / input_boolean
             service = SERVICE_TURN_ON if turn_on else SERVICE_TURN_OFF
             service_domain = domain
+            # Fan on-speed (FR-L4b): drive a multi-speed fan at a chosen percentage
+            # instead of whatever speed it defaults to. The fan quantizes to its step.
+            if turn_on and domain == "fan" and act.on_speed_pct is not None:
+                data["percentage"] = act.on_speed_pct
         self.hass.async_create_task(
-            self.hass.services.async_call(
-                service_domain, service, {"entity_id": act.entity_id}, blocking=False
-            )
+            self.hass.services.async_call(service_domain, service, data, blocking=False)
         )
 
     # --- control tick ----------------------------------------------------

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — fan on-speed (FR-L4b) (2026-06-06)
+- Per-actuator **fan speed when on** (0–100%, fans only). When Aeolus turns a `fan`
+  actuator on, it issues `fan.turn_on` with `percentage=` so a multi-speed fan runs
+  at a chosen speed instead of defaulting (e.g. a 5-speed range hood defaulting to
+  20% / speed 1). The fan quantizes to its native step. Config-flow slider +
+  help text; minutes-style parse (`int` or None); `_send_command` adds `percentage`
+  to the `fan.turn_on` data. Tests in `tests/test_fan_speed.py`. Spec → **v2.7**
+  (FR-L4b). **Needs an HA restart to take effect** (new Python + config-flow field).
+
 ### Fixed — brand icon/logo render locally (2026-06-05)
 - Moved `brand/` from the repo root into **`custom_components/aeolus/brand/`** so HA's
   **Brands Proxy** (2026.3+) serves the integration's icon/logo (was "icon not
