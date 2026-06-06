@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Specification v2.1 (2026-06-05)
+- **Resolved all 5 open decisions (§7):** (1) MVP slice = the core loop (spaces+sensors+EMA/slope/ACH+on/off direct actuators+threshold+outdoor-AQ veto+stale safety+per-actuator max-runtime), induced/diffusive/calibration/variable-drive/full-CAZ deferred to v1.1; (2) primary entity = sensor-centric (no domain abuse); (3) gains = buckets drive control, measured ACH observe-only until Gold; (4) C_out = single global value, entity-or-constant (default 420; this house has no outdoor CO₂ source); (5) combustion/radon = per-actuator max-runtime in v1, full CAZ budget + radon veto in v1.1, worst-case-safe defaults until the gas-appliance inventory is provided.
+- Status moved from "draft for review" to "decisions resolved; ready to scaffold v0.1 MVP."
+
 ### Added — Specification v2.0 (2026-06-05)
 - Initial repository: `README.md`, versioned `REQUIREMENTS.md` (v2.0), `docs/SCAFFOLD.md` (structure + Quality-Scale traceability + roadmap), Apache-2.0 `LICENSE`.
 - Building-physics backbone: single-zone mass balance, exponential decay toward outdoor floor, reachability condition, gap-normalized **effective ACH** as the comparison metric, MIMO `M(u)` shared-air coupling (direct / diffusive / **induced**).
@@ -13,5 +17,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Hard guardrails: HEPA/recirculation rejection, outdoor-AQ veto, radon-on-depressurization veto, CAZ combustion-safety caps, per-member stale-sensor safe-state, manual-override yield.
 - Quality-Scale plan: build for **Silver**, architected for **Platinum**.
 
-### Open
-- Five open decisions tracked in `REQUIREMENTS.md` §7 (MVP slice, primary entity type, gain representation, `C_out` source, combustion/radon cap scope).
+### Open input still needed
+- The gas/combustion appliance inventory (atmospheric vs sealed/direct-vent vs electric) — required before the v1.1 CAZ depressurization caps can be relaxed from their worst-case-safe defaults. Not blocking the v0.1 MVP.

@@ -1,9 +1,9 @@
 # Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
-**Requirements Specification — v2.0**
+**Requirements Specification — v2.1**
 
 | | |
 |---|---|
-| **Status** | Draft for review (no implementation) |
+| **Status** | Decisions resolved (§7); ready to scaffold the v0.1 MVP. No implementation yet. |
 | **Build target** | HA Integration Quality Scale — **Silver** |
 | **Architected for** | **Platinum** |
 | **Domain** | `aeolus` |
@@ -156,12 +156,13 @@ Exercises direct + diffusive + induced + escalation + safety vetoes; the headlin
 ## 6. Out of scope
 Temperature/HVAC control (pairs with Versatile Thermostat) · airflow/pressure *measurement* (inferred only) · code-compliance certification · CO (carbon-monoxide) life-safety detection · sorbent/biological CO₂ capture (negligible at room scale).
 
-## 7. Open decisions (resolve before MVP)
-1. **MVP slice** — recommend: spaces + sensors + EMA/slope/`effective_ach` + on/off **direct** actuators + threshold control + outdoor-AQ & stale vetoes. Defer induced edges, auto-calibration, variable drive, radon/CAZ caps to v1.1.
-2. **Primary entity** — `sensor`-centric (Silver-simple) vs. a bespoke "manager" entity like VT's climate. *Rec: sensor-centric v1.*
-3. **Gains** — qualitative buckets v1, measured ACH internal/Gold.
-4. **C_out source** — fixed constant, single outdoor sensor, or per-space? *Rec: one outdoor sensor, fallback constant 420.*
-5. **Combustion/radon caps (FR-G1/G2)** — appliance inventory (atmospheric vs sealed); radon veto in v1 or v1.1?
+## 7. Resolved decisions (v2.1 — 2026-06-05)
+
+1. **MVP slice — RESOLVED: ship the core loop (v0.1).** Spaces + CO₂ sensors (aggregation + per-member freshness) + time-aware EMA + slope + `effective_ach` + **on/off direct actuators** + threshold/hysteresis control + **outdoor-AQ veto** + **stale-sensor safe-state** + **per-actuator max-runtime cap**. Lands Bronze + most of Silver and already solves the whole-home-ERV case. **Deferred to v1.1:** induced/pressure edges + escalation (FR-L3, FR-X3), diffusive air-share links (FR-X4), door-gating, occupancy feedforward (FR-S5), variable-speed drive (FR-L4), auto-calibration (FR-X5/S4), full CAZ net-exhaust budget + radon veto (FR-G1 full / G2). *Rationale: prove the closed loop correct + useful standalone before the novel shared-air modeling; outdoor-AQ + stale + max-runtime are cheap correctness/safety, so they ship in v1.*
+2. **Primary entity — RESOLVED: sensor-centric.** Per space: `sensor` (Space CO₂ + slope/ach/status attrs) + `binary_sensor` (mitigation/attention) + `number` (target) + `select` (mode) + `switch` (enable). No HA domain cleanly models a ventilation controller (`climate`=temp, `humidifier`=RH → domain abuse), so compose idiomatic standard entities. A bespoke single-card "manager" entity can be added later without breaking these.
+3. **Gains — RESOLVED: buckets drive control; measured ACH observe-only until Gold.** Config uses qualitative buckets (None/Low/Medium/High → internal numeric ΔACH priors); these alone feed coverage×gain arbitration. `effective_ach` is measured continuously for display/comparison but is NOT fed back into control until opt-in auto-calibration (Gold) — clean per-actuator attribution in shared air is unreliable.
+4. **C_out — RESOLVED: single global value, configurable entity with constant fallback (default 420 ppm).** Not per-space (outdoor CO₂ is ~uniform). It is the asymptotic floor and the denominator of `effective_ach`, so clamp `(C − C_out) ≥ ε` to avoid divide-by-zero / negative ACH on sensor noise. **This house:** no reliable outdoor CO₂ source exists (AirVisual Outdoor = PM/AQI, not CO₂) → use the 420 constant (seasonally ~420–430).
+5. **Combustion/radon caps — RESOLVED: fail-safe defaults now, full caps in v1.1.** Per-actuator **max-runtime** ships in v1 (baseline safety on any exhaust). The **full CAZ net-exhaust depressurization budget + radon veto** ship in v1.1 with the exhaust/induced actuators they govern (radon veto is cheap and the Aranet Radon+ sensors exist → v1.1, not later). **Posture until the appliance inventory is known: assume worst case** (atmospheric combustion present → strict exhaust runtime/simultaneity limits). **One input still needed before v1.1:** the gas/combustion appliance inventory (water heater, range, fireplaces, pool/spa heater, dryer — atmospheric/natural-draft vs sealed/direct-vent/power-vent vs electric). Confirming it lets us *relax* the strict defaults; lacking it, we stay strict (safe).
 
 ---
 

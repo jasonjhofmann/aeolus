@@ -82,7 +82,7 @@ aeolus/
 
 ## Roadmap
 
-- **v0.x (MVP — Open Decision #1):** spaces + sensors + `ema.py` + slope + `effective_ach` + on/off **direct** actuators + threshold control + outdoor-AQ veto + stale-sensor safety. Lands **Bronze**, most of **Silver**.
+- **v0.1 (MVP — RESOLVED, §7):** spaces + sensors (per-member freshness) + `ema.py` + slope + `effective_ach` + on/off **direct** actuators + threshold/hysteresis control + outdoor-AQ veto + stale-sensor safety + **per-actuator max-runtime**. Lands **Bronze**, most of **Silver**.
 - **v1.0 (Silver complete):** full test coverage, config-entry-unloading, unavailable handling, docs params, integration-owner.
 - **v1.1:** induced/pressure edges + escalation (FR-L3), door-gating, radon & CAZ caps (FR-G1/G2), variable-speed drive (FR-L4).
 - **v1.2 (Gold):** diagnostics, repairs, devices/dynamic-devices, full translations, reconfiguration-flow, docs-* set.
