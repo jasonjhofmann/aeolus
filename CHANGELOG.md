@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed — live reconfigure / reload-on-update (2026-06-06)
+- Added a config-entry **update-listener** that reloads the entry when a Space or
+  Actuator subentry is added/reconfigured. Previously the engine parsed thresholds
+  only at `async_setup_entry`, so editing a Space's `target_ppm`/`high_ppm` (or any
+  subentry field) saved to storage but the **running engine kept the stale values
+  until a restart** — e.g. raising a high threshold left the actuator running on the
+  old (low) value, which is exactly what stranded the Kitchen Range Hood on. Now any
+  subentry edit takes effect immediately. `tests/test_reload.py`. (Needs one restart
+  for the listener itself to start running.)
+
 ### Added — fan on-speed (FR-L4b) (2026-06-06)
 - Per-actuator **fan speed when on** (0–100%, fans only). When Aeolus turns a `fan`
   actuator on, it issues `fan.turn_on` with `percentage=` so a multi-speed fan runs

@@ -62,9 +62,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bo
     entry.runtime_data = AeolusData(engine=engine)
     engine.async_start()
     entry.async_on_unload(engine.async_stop)
+    # Reload when a Space/Actuator subentry is added or reconfigured, so threshold/
+    # actuator edits take effect immediately instead of only at the next restart.
+    entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_reload_on_update(hass: HomeAssistant, entry: AeolusConfigEntry) -> None:
+    """Re-parse subentries by reloading the entry (config/subentry changed)."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bool:
