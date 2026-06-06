@@ -10,6 +10,7 @@ from __future__ import annotations
 from homeassistant.components.sensor import (
     RestoreSensor,
     SensorDeviceClass,
+    SensorEntity,
     SensorStateClass,
 )
 from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION
@@ -39,7 +40,11 @@ async def async_setup_entry(
             continue
         space = engine.spaces[sub_id]
         async_add_entities(
-            [AeolusSpaceCO2Sensor(engine, space)],
+            [
+                AeolusSpaceCO2Sensor(engine, space),
+                AeolusSlopeSensor(engine, space),
+                AeolusAchSensor(engine, space),
+            ],
             config_subentry_id=sub_id,  # links entity+device to the subentry
         )
 
@@ -98,3 +103,62 @@ class AeolusSpaceCO2Sensor(AeolusSpaceEntity, RestoreSensor):
             "target_ppm": self._space.target_ppm,
             "c_out_ppm": self._engine.c_out_ppm,
         }
+
+
+class _DerivedSpaceSensor(AeolusSpaceEntity, SensorEntity):
+    """Base for the per-Space derived diagnostic sensors (slope, ACH)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_should_poll = False
+    _attr_suggested_display_precision = 2
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                signal_space_update(self._engine.entry_id, self._space.subentry_id),
+                self._handle_update,
+            )
+        )
+
+    @callback
+    def _handle_update(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        return self._engine.space_available(self._space.subentry_id)
+
+
+class AeolusSlopeSensor(_DerivedSpaceSensor):
+    """Signed CO2 slope (ppm/min) — the rate of change, à la VTherm's temp slope."""
+
+    _attr_translation_key = "co2_slope"
+    _attr_native_unit_of_measurement = "ppm/min"
+    _attr_icon = "mdi:slope-downhill"
+
+    def __init__(self, engine: AeolusEngine, space: Space) -> None:
+        super().__init__(engine, space)
+        self._attr_unique_id = f"{space.subentry_id}_co2_slope"
+
+    @property
+    def native_value(self) -> float | None:
+        rt = self._engine.space_runtime(self._space.subentry_id)
+        return None if rt is None else rt.slope_ppm_per_min
+
+
+class AeolusAchSensor(_DerivedSpaceSensor):
+    """Gap-normalized effective air-change rate (1/h). Meaningful during decay."""
+
+    _attr_translation_key = "air_change_rate"
+    _attr_native_unit_of_measurement = "/h"
+    _attr_icon = "mdi:air-filter"
+
+    def __init__(self, engine: AeolusEngine, space: Space) -> None:
+        super().__init__(engine, space)
+        self._attr_unique_id = f"{space.subentry_id}_air_change_rate"
+
+    @property
+    def native_value(self) -> float | None:
+        return self._engine.space_effective_ach(self._space.subentry_id)

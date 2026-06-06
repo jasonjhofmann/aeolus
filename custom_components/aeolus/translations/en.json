@@ -138,6 +138,10 @@
     }
   },
   "entity": {
+    "sensor": {
+      "co2_slope": { "name": "CO₂ slope" },
+      "air_change_rate": { "name": "Air change rate" }
+    },
     "binary_sensor": {
       "mitigation_active": { "name": "Mitigation active" },
       "attention": { "name": "Attention" }

@@ -1,11 +1,20 @@
-"""Per-Space target-CO2 number (FR-E3). Restores across restarts (NFR-2)."""
+"""Per-Space target-CO2 number (FR-E3).
+
+The configured subentry `target_ppm` is the source of truth: it's parsed into
+`space.target_ppm` at setup and re-applied whenever the subentry is reconfigured
+(via the reload-on-update listener). This number is a *live, in-session* knob —
+it reads and nudges `space.target_ppm` but does NOT persist across reload, so a
+reconfigure of the subentry always wins. (It used to be a RestoreNumber that
+restored a stale value and clobbered the freshly-configured target — that's the
+bug this design avoids.)
+"""
 
 from __future__ import annotations
 
 from homeassistant.components.number import (
     NumberDeviceClass,
+    NumberEntity,
     NumberMode,
-    RestoreNumber,
 )
 from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION
 from homeassistant.core import HomeAssistant
@@ -34,8 +43,8 @@ async def async_setup_entry(
         )
 
 
-class AeolusTargetNumber(AeolusSpaceEntity, RestoreNumber):
-    """The CO2 target the controller drives toward (FR-L1)."""
+class AeolusTargetNumber(AeolusSpaceEntity, NumberEntity):
+    """The CO2 target the controller drives toward (FR-L1). Subentry-canonical."""
 
     _attr_translation_key = "target"
     _attr_device_class = NumberDeviceClass.CO2
@@ -48,13 +57,6 @@ class AeolusTargetNumber(AeolusSpaceEntity, RestoreNumber):
     def __init__(self, engine: AeolusEngine, space: Space) -> None:
         super().__init__(engine, space)
         self._attr_unique_id = f"{space.subentry_id}_target"
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        if (data := await self.async_get_last_number_data()) is not None and (
-            data.native_value is not None
-        ):
-            self._space.target_ppm = float(data.native_value)
 
     @property
     def native_value(self) -> float:

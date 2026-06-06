@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — slope & ACH as first-class sensors (2026-06-06)
+- Each Space now exposes **`sensor.<space>_co2_slope`** (ppm/min) and
+  **`sensor.<space>_air_change_rate`** (1/h) as their own measurement sensors —
+  graphable/recordable, like Versatile Thermostat's temperature slope — instead of
+  only living as attributes on the CO₂ sensor (the attributes stay too). `tests/test_derived_sensors.py`.
+
+### Fixed — configured target no longer clobbered by the Target number (2026-06-06)
+- The Target `number` was a `RestoreNumber` that restored its last saved value and
+  **overwrote `space.target_ppm` on every load** — so a reconfigured subentry target
+  was reverted to the stale number value (a Space configured to 600 ran at a restored
+  420). The Target number is now **subentry-canonical**: a plain `NumberEntity` that
+  reads/nudges `space.target_ppm` live but never overrides the configured value, so a
+  reconfigure always wins. (A live nudge is in-session; reconfigure for a persistent
+  change.)
+
 ### Fixed — live reconfigure / reload-on-update (2026-06-06)
 - Added a config-entry **update-listener** that reloads the entry when a Space or
   Actuator subentry is added/reconfigured. Previously the engine parsed thresholds
