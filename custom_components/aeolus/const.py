@@ -34,6 +34,7 @@ CONF_MECHANISM: Final = "mechanism"
 CONF_INFLUENCES: Final = "influences"  # list of per-space influence rows
 CONF_SERVED_SPACES: Final = "served_spaces"  # v0.1: direct-reducing space ids
 CONF_FILTER_EFFICIENCY: Final = "filter_efficiency"  # 0..1, PM2.5 capture of this pathway
+CONF_REARM_INTERVAL: Final = "rearm_interval"  # minutes; re-send ON for self-auto-off loads (FR-L5b)
 CONF_MAX_RUNTIME_MIN: Final = "max_runtime_min"
 CONF_RATED_CFM: Final = "rated_cfm"
 # influence row keys

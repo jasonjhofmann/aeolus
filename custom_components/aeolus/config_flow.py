@@ -31,6 +31,7 @@ from .const import (
     CONF_MECHANISM,
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
+    CONF_REARM_INTERVAL,
     CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
     CONF_VOLUME_FT3,
@@ -166,6 +167,11 @@ def _actuator_schema(
             vol.Optional(
                 CONF_FILTER_EFFICIENCY, default=d.get(CONF_FILTER_EFFICIENCY, 0.0)
             ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
+            # Re-arm (FR-L5b): minutes between ON re-sends for a load that
+            # auto-offs internally (switch keeps reporting `on`). 0 = off.
+            vol.Optional(
+                CONF_REARM_INTERVAL, default=d.get(CONF_REARM_INTERVAL, 0)
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=120)),
             # Per-pathway outdoor-AQ source (FR-G3, v2.3): the PM sensor at THIS
             # actuator's intake (e.g. the AirVisual at the ERV intake). Falls back
             # to the space's sensor when unset.

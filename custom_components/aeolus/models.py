@@ -8,6 +8,7 @@ at setup; the live EMA/slope state lives on the engine, not here.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
@@ -70,6 +71,10 @@ class Actuator:
     filter_efficiency: float = 0.0  # PM2.5 capture, 0=foam/none … 0.99=HEPA
     max_runtime_min: float = 120.0
     rated_cfm: float | None = None
+    # Re-arm (FR-L5b): for a load that auto-offs internally while its switch keeps
+    # reporting `on` (e.g. the Primary-Bath toilet fan). When set, the engine
+    # re-sends ON this often while still demanded. None = normal idempotent control.
+    rearm_interval: timedelta | None = None
 
 
 @dataclass(slots=True)

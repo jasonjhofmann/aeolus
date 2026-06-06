@@ -90,6 +90,7 @@ class ActuatorRuntime:
     commanded_on: bool = False
     on_since: datetime | None = None
     last_change: datetime | None = None
+    last_command_sent: datetime | None = None  # last time the ON/OFF service fired (rearm cadence)
     overridden_until: datetime | None = None
 
 
@@ -235,10 +236,25 @@ class AeolusEngine:
         return until is not None and now < until
 
     def command_actuator(self, act_id: str, turn_on: bool, now: datetime) -> None:
-        """Drive an actuator on/off, honoring min on/off (FR-L5). Idempotent."""
+        """Drive an actuator on/off, honoring min on/off (FR-L5).
+
+        Idempotent, with one exception: an actuator with `rearm_interval` set
+        re-sends the ON command periodically while still wanted (FR-L5b). That
+        defeats a load that auto-offs internally while its switch keeps reporting
+        `on` (e.g. the Primary-Bath toilet fan) — without a re-arm, Aeolus would
+        think it's still running and never restart it.
+        """
         act = self.actuators[act_id]
         rt = self._act_runtime[act_id]
         if turn_on == rt.commanded_on:
+            if (
+                turn_on
+                and act.rearm_interval is not None
+                and not self.actuator_is_overridden(act_id, now)
+                and rt.last_command_sent is not None
+                and now - rt.last_command_sent >= act.rearm_interval
+            ):
+                self._send_command(act, True, now)
             return
         if rt.last_change is not None:
             elapsed = now - rt.last_change
@@ -246,6 +262,14 @@ class AeolusEngine:
                 return
             if not turn_on and elapsed < self.min_on:
                 return
+        rt.commanded_on = turn_on
+        rt.last_change = now
+        rt.on_since = now if turn_on else None
+        self._send_command(act, turn_on, now)
+
+    def _send_command(self, act: Actuator, turn_on: bool, now: datetime) -> None:
+        """Fire the on/off service for an actuator and stamp the send time."""
+        self._act_runtime[act.subentry_id].last_command_sent = now
         domain = act.entity_id.split(".", 1)[0]
         if domain == "cover":
             service = SERVICE_OPEN_COVER if turn_on else SERVICE_CLOSE_COVER
@@ -253,9 +277,6 @@ class AeolusEngine:
         else:  # fan / switch / input_boolean
             service = SERVICE_TURN_ON if turn_on else SERVICE_TURN_OFF
             service_domain = domain
-        rt.commanded_on = turn_on
-        rt.last_change = now
-        rt.on_since = now if turn_on else None
         self.hass.async_create_task(
             self.hass.services.async_call(
                 service_domain, service, {"entity_id": act.entity_id}, blocking=False

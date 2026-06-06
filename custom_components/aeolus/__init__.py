@@ -7,6 +7,8 @@ registered in `async_setup` (action-setup rule).
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
@@ -20,6 +22,7 @@ from .const import (
     CONF_MECHANISM,
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
+    CONF_REARM_INTERVAL,
     CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
     CONF_VOLUME_FT3,
@@ -89,6 +92,7 @@ def _parse_subentries(
                 outdoor_aq_threshold=data.get(CONF_OUTDOOR_AQ_THRESHOLD),
             )
         elif sub.subentry_type == SUBENTRY_TYPE_ACTUATOR:
+            rearm_min = data.get(CONF_REARM_INTERVAL)
             actuators[sub_id] = Actuator(
                 subentry_id=sub_id,
                 name=sub.title,
@@ -96,6 +100,9 @@ def _parse_subentries(
                 mechanism=Mechanism(data.get(CONF_MECHANISM, Mechanism.BALANCED)),
                 filter_efficiency=float(data.get(CONF_FILTER_EFFICIENCY, 0.0)),
                 outdoor_aq_entity=data.get(CONF_OUTDOOR_AQ_ENTITY),
+                rearm_interval=(
+                    timedelta(minutes=float(rearm_min)) if rearm_min else None
+                ),
                 influences=[
                     Influence(
                         space_id=space_id,
