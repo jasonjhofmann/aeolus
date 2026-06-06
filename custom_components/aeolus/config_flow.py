@@ -29,6 +29,8 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
+    CONF_OUTDOOR_AQ_ENTITY,
+    CONF_OUTDOOR_AQ_THRESHOLD,
     CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
     CONF_VOLUME_FT3,
@@ -98,6 +100,17 @@ def _space_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             vol.Optional(CONF_VOLUME_FT3, default=d.get(CONF_VOLUME_FT3)): vol.Any(
                 None, vol.Coerce(float)
             ),
+            # Outdoor-AQ veto (FR-G3): the PM sensor for this space's outdoor air
+            # + the indoor-contribution threshold above which outdoor-air
+            # strategies are blocked. Per-actuator intake sensor (below) overrides.
+            vol.Optional(
+                CONF_OUTDOOR_AQ_ENTITY, default=d.get(CONF_OUTDOOR_AQ_ENTITY)
+            ): vol.Any(None, selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor")
+            )),
+            vol.Optional(
+                CONF_OUTDOOR_AQ_THRESHOLD, default=d.get(CONF_OUTDOOR_AQ_THRESHOLD)
+            ): vol.Any(None, vol.Coerce(float)),
         }
     )
 
@@ -153,6 +166,14 @@ def _actuator_schema(
             vol.Optional(
                 CONF_FILTER_EFFICIENCY, default=d.get(CONF_FILTER_EFFICIENCY, 0.0)
             ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
+            # Per-pathway outdoor-AQ source (FR-G3, v2.3): the PM sensor at THIS
+            # actuator's intake (e.g. the AirVisual at the ERV intake). Falls back
+            # to the space's sensor when unset.
+            vol.Optional(
+                CONF_OUTDOOR_AQ_ENTITY, default=d.get(CONF_OUTDOOR_AQ_ENTITY)
+            ): vol.Any(None, selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor")
+            )),
         }
     )
 

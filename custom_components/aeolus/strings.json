@@ -23,7 +23,9 @@
             "aggregation": "Sensor aggregation",
             "target_ppm": "Target CO2 (ppm)",
             "high_ppm": "High threshold (ppm)",
-            "volume_ft3": "Volume (ft3, optional)"
+            "volume_ft3": "Volume (ft3, optional)",
+            "outdoor_aq_entity": "Outdoor air-quality sensor (PM, optional)",
+            "outdoor_aq_threshold": "Outdoor-AQ veto threshold"
           }
         },
         "reconfigure": {
@@ -34,7 +36,9 @@
             "aggregation": "Sensor aggregation",
             "target_ppm": "Target CO2 (ppm)",
             "high_ppm": "High threshold (ppm)",
-            "volume_ft3": "Volume (ft3, optional)"
+            "volume_ft3": "Volume (ft3, optional)",
+            "outdoor_aq_entity": "Outdoor air-quality sensor (PM, optional)",
+            "outdoor_aq_threshold": "Outdoor-AQ veto threshold"
           }
         }
       }
@@ -50,7 +54,8 @@
             "actuator_entity": "Entity",
             "mechanism": "Air mechanism",
             "served_spaces": "Spaces this directly reduces",
-            "filter_efficiency": "Intake filter efficiency (0-1)"
+            "filter_efficiency": "Intake filter efficiency (0-1)",
+            "outdoor_aq_entity": "Intake outdoor-AQ sensor (overrides space's, optional)"
           }
         },
         "reconfigure": {
@@ -60,7 +65,8 @@
             "actuator_entity": "Entity",
             "mechanism": "Air mechanism",
             "served_spaces": "Spaces this directly reduces",
-            "filter_efficiency": "Intake filter efficiency (0-1)"
+            "filter_efficiency": "Intake filter efficiency (0-1)",
+            "outdoor_aq_entity": "Intake outdoor-AQ sensor (overrides space's, optional)"
           }
         }
       }

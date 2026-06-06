@@ -18,6 +18,8 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
+    CONF_OUTDOOR_AQ_ENTITY,
+    CONF_OUTDOOR_AQ_THRESHOLD,
     CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
     CONF_VOLUME_FT3,
@@ -83,6 +85,8 @@ def _parse_subentries(
                 target_ppm=float(data.get(CONF_TARGET_PPM, DEFAULT_TARGET_PPM)),
                 high_ppm=float(data.get(CONF_HIGH_PPM, DEFAULT_HIGH_PPM)),
                 volume_ft3=data.get(CONF_VOLUME_FT3),
+                outdoor_aq_entity=data.get(CONF_OUTDOOR_AQ_ENTITY),
+                outdoor_aq_threshold=data.get(CONF_OUTDOOR_AQ_THRESHOLD),
             )
         elif sub.subentry_type == SUBENTRY_TYPE_ACTUATOR:
             actuators[sub_id] = Actuator(
@@ -91,6 +95,7 @@ def _parse_subentries(
                 entity_id=data[CONF_ACTUATOR_ENTITY],
                 mechanism=Mechanism(data.get(CONF_MECHANISM, Mechanism.BALANCED)),
                 filter_efficiency=float(data.get(CONF_FILTER_EFFICIENCY, 0.0)),
+                outdoor_aq_entity=data.get(CONF_OUTDOOR_AQ_ENTITY),
                 influences=[
                     Influence(
                         space_id=space_id,

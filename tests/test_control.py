@@ -6,9 +6,12 @@ lands and we can assert the resulting state), not a bare mock state.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.aeolus.const import (
@@ -92,5 +95,43 @@ async def test_paused_engine_does_not_actuate(hass: HomeAssistant) -> None:
     _wire(entry)
     entry.runtime_data.engine.paused = True
     entry.runtime_data.engine.request_evaluation()
+    await hass.async_block_till_done()
+    assert hass.states.get(ACTUATOR).state == "off"
+
+
+async def test_manual_override_yields(hass: HomeAssistant) -> None:
+    entry = await _setup(hass, "1200")
+    _wire(entry)
+    engine = entry.runtime_data.engine
+    engine.request_evaluation()
+    await hass.async_block_till_done()
+    assert hass.states.get(ACTUATOR).state == "on"
+
+    # A human turns it off → Aeolus should yield, not fight (FR-L7).
+    await hass.services.async_call(
+        "input_boolean", "turn_off", {"entity_id": ACTUATOR}, blocking=True
+    )
+    await hass.async_block_till_done()
+    engine.request_evaluation()
+    await hass.async_block_till_done()
+    assert hass.states.get(ACTUATOR).state == "off"
+
+
+async def test_max_runtime_forces_off(hass: HomeAssistant) -> None:
+    entry = await _setup(hass, "1200")
+    _wire(entry)
+    engine = entry.runtime_data.engine
+    engine.request_evaluation()
+    await hass.async_block_till_done()
+    assert hass.states.get(ACTUATOR).state == "on"
+
+    # Age the command past both min-on and the (shortened) max-runtime cap.
+    act_id = next(iter(engine.actuators))
+    engine.actuators[act_id].max_runtime_min = 1
+    rt = engine.actuator_runtime(act_id)
+    past = dt_util.utcnow() - timedelta(minutes=30)
+    rt.on_since = past
+    rt.last_change = past
+    engine.request_evaluation()
     await hass.async_block_till_done()
     assert hass.states.get(ACTUATOR).state == "off"
