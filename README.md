@@ -6,13 +6,17 @@
 
 ---
 
-## Status: 🚧 v0.1 scaffold (contracts + read/observe slice; control loop stubbed)
+## Status: 🚧 v0.1 — control loop closed (untested in a live HA yet)
 
-The spec is settled and the core scaffold is in place. Built so far: the data
-model/contracts, the verified config-subentry flows, the push engine (no
-coordinator), the time-aware EMA + slope + gap-normalized ACH math (unit-tested),
-and the Space CO₂ sensor platform. The arbitration controller (FR-L\*) and safety
-vetoes (FR-G\*) are stubbed with signatures — they're the coupled core to build next.
+The spec is settled and the v0.1 MVP is implemented end-to-end: data model +
+verified config-subentry flows, the push engine (no coordinator), time-aware
+EMA + slope + gap-normalized ACH (unit-tested), per-space **hysteresis control**
+with coverage arbitration over `direct` actuators, **safety vetoes** (stale
+safe-state, filter-aware outdoor-AQ veto, per-actuator max-runtime), manual-
+override yield, and all five entity platforms (sensor / binary_sensor / number /
+select / switch). Deferred to v1.1: induced/pressure edges + escalation, variable
+drive, full CAZ + radon veto, auto-calibration. **Next: load it in a dev HA and
+add config-flow + control tests toward Bronze/Silver.**
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.5).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.

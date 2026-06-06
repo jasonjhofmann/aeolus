@@ -18,25 +18,29 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
-    CONF_NAME,
+    CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
     CONF_VOLUME_FT3,
     DEFAULT_HIGH_PPM,
     DEFAULT_TARGET_PPM,
-    DOMAIN,
     SUBENTRY_TYPE_ACTUATOR,
     SUBENTRY_TYPE_SPACE,
     Aggregation,
+    Gain,
+    InfluenceType,
     Mechanism,
 )
 from .engine import AeolusEngine
-from .models import Actuator, AeolusConfigEntry, AeolusData, Space
+from .models import Actuator, AeolusConfigEntry, AeolusData, Influence, Space
 from .services import async_register_services
 
-# v0.1 ships the read/observe slice (Space CO2 + EMA/slope/ACH). Control
-# platforms (number/select/switch) + binary_sensor land as the controller
-# matures — add them here once their files exist.
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SWITCH,
+]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -87,5 +91,13 @@ def _parse_subentries(
                 entity_id=data[CONF_ACTUATOR_ENTITY],
                 mechanism=Mechanism(data.get(CONF_MECHANISM, Mechanism.BALANCED)),
                 filter_efficiency=float(data.get(CONF_FILTER_EFFICIENCY, 0.0)),
+                influences=[
+                    Influence(
+                        space_id=space_id,
+                        gain=Gain.MEDIUM,
+                        influence_type=InfluenceType.DIRECT,
+                    )
+                    for space_id in data.get(CONF_SERVED_SPACES, [])
+                ],
             )
     return spaces, actuators

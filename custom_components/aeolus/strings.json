@@ -49,6 +49,7 @@
             "name": "Name",
             "actuator_entity": "Entity",
             "mechanism": "Air mechanism",
+            "served_spaces": "Spaces this directly reduces",
             "filter_efficiency": "Intake filter efficiency (0-1)"
           }
         },
@@ -58,6 +59,7 @@
             "name": "Name",
             "actuator_entity": "Entity",
             "mechanism": "Air mechanism",
+            "served_spaces": "Spaces this directly reduces",
             "filter_efficiency": "Intake filter efficiency (0-1)"
           }
         }
@@ -81,6 +83,28 @@
         "transfer": "Transfer (inter-zone)",
         "window": "Window / opener"
       }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "mitigation_active": { "name": "Mitigation active" },
+      "attention": { "name": "Attention" }
+    },
+    "number": {
+      "target": { "name": "Target CO2" }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "manage": "Manage",
+          "monitor": "Monitor only",
+          "off": "Off"
+        }
+      }
+    },
+    "switch": {
+      "management": { "name": "Management" }
     }
   },
   "services": {

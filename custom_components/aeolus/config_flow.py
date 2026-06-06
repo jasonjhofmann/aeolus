@@ -29,6 +29,7 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
+    CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
     CONF_VOLUME_FT3,
     DEFAULT_HIGH_PPM,
@@ -124,7 +125,10 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
         )
 
 
-def _actuator_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+def _actuator_schema(
+    space_options: list[selector.SelectOptionDict],
+    defaults: dict[str, Any] | None = None,
+) -> vol.Schema:
     d = defaults or {}
     return vol.Schema(
         {
@@ -139,11 +143,16 @@ def _actuator_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     options=[m.value for m in Mechanism], translation_key="mechanism"
                 )
             ),
+            # v0.1: which Spaces this actuator DIRECTLY reduces (FR-C4 simplified).
+            # Induced/diffusive influence rows + per-pathway AQ source come in v1.1.
+            vol.Optional(
+                CONF_SERVED_SPACES, default=d.get(CONF_SERVED_SPACES, [])
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=space_options, multiple=True)
+            ),
             vol.Optional(
                 CONF_FILTER_EFFICIENCY, default=d.get(CONF_FILTER_EFFICIENCY, 0.0)
             ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
-            # NOTE: per-space influence rows (FR-C4) + outdoor-AQ source come in a
-            # follow-up multi-step flow; v0.1 captures the actuator + mechanism.
         }
     )
 
@@ -151,13 +160,23 @@ def _actuator_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
 class ActuatorSubentryFlow(ConfigSubentryFlow):
     """Add / reconfigure a ventilation Actuator (FR-C4)."""
 
+    def _space_options(self) -> list[selector.SelectOptionDict]:
+        """Spaces currently defined on the parent entry (subentry_id → title)."""
+        return [
+            selector.SelectOptionDict(value=sub_id, label=sub.title)
+            for sub_id, sub in self._get_entry().subentries.items()
+            if sub.subentry_type == SUBENTRY_TYPE_SPACE
+        ]
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         if user_input is not None:
             # TODO(FR-C8): reject recirculating air purifiers here.
             return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
-        return self.async_show_form(step_id="user", data_schema=_actuator_schema())
+        return self.async_show_form(
+            step_id="user", data_schema=_actuator_schema(self._space_options())
+        )
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -168,5 +187,6 @@ class ActuatorSubentryFlow(ConfigSubentryFlow):
                 self._get_entry(), subentry, title=user_input[CONF_NAME], data=user_input
             )
         return self.async_show_form(
-            step_id="reconfigure", data_schema=_actuator_schema(dict(subentry.data))
+            step_id="reconfigure",
+            data_schema=_actuator_schema(self._space_options(), dict(subentry.data)),
         )
