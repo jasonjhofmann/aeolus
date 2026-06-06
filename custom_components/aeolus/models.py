@@ -78,6 +78,10 @@ class Actuator:
     # Fan on-speed (FR-L4b): fans only. % speed Aeolus sets when it turns the fan
     # on (the fan quantizes to its nearest step). None = leave at the fan's default.
     on_speed_pct: int | None = None
+    # Override confirmation window (FR-L7b): how long a state divergence must persist
+    # before it counts as a manual override. 0 = react immediately (default). >0 lets
+    # a cloud actuator (e.g. LG ThinQ) flap unavailable→off→on without false-yielding.
+    override_grace: timedelta = timedelta(0)
 
 
 @dataclass(slots=True)

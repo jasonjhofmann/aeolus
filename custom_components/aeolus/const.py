@@ -36,6 +36,7 @@ CONF_SERVED_SPACES: Final = "served_spaces"  # v0.1: direct-reducing space ids
 CONF_FILTER_EFFICIENCY: Final = "filter_efficiency"  # 0..1, PM2.5 capture of this pathway
 CONF_REARM_INTERVAL: Final = "rearm_interval"  # minutes; re-send ON for self-auto-off loads (FR-L5b)
 CONF_ON_SPEED_PCT: Final = "on_speed_pct"  # fans only: % speed to set when turned on (FR-L4b)
+CONF_OVERRIDE_GRACE_MIN: Final = "override_grace_min"  # min a divergence must persist → override (FR-L7b)
 CONF_MAX_RUNTIME_MIN: Final = "max_runtime_min"
 CONF_RATED_CFM: Final = "rated_cfm"
 # influence row keys

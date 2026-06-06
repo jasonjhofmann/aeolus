@@ -1,5 +1,5 @@
 # Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
-**Requirements Specification — v2.7**
+**Requirements Specification — v2.8**
 
 | | |
 |---|---|
@@ -107,6 +107,7 @@ dC/dt = −M(u)·(C − C_out·𝟙) + g/V
 - **FR-L5b Re-arm interval (self-auto-off loads)**: for an actuator whose load auto-offs internally while its switch keeps reporting `on` (e.g. a bath fan with a built-in timer that the relay can't observe), re-send the ON command at a configurable per-actuator interval while the space still demands and no override is active. Default off (normal idempotent control). *Motivating case: the Primary-Bath toilet exhaust, whose Savant switch holds `on` through the fan's ~15–30 min hardware auto-off; the legacy automation re-armed it every 14 min.*
 - **FR-L6** Per-space mode: `manage` / `monitor-only` / `off`.
 - **FR-L7 Manual-override yield**: detect external changes to a managed actuator, mark `overridden`, yield for a configurable window, then resume.
+- **FR-L7b Override confirmation window**: a per-actuator delay a state divergence must *persist* before it counts as a manual override (0 = immediate, default). Filters transient flaps from cloud actuators — e.g. LG ThinQ's ~1 min poll lag + `unavailable→off→on` blips — that would otherwise false-trigger the yield and strand the device.
 
 ### 3.6 Safety, IAQ trade-offs & guardrails (non-optional)
 - **FR-G1 Combustion safety (CAZ depressurization).** Sustained net exhaust depressurizes the envelope → backdraft risk for *atmospheric/natural-draft* combustion appliances. Enforce **per-actuator max runtime** always; the **global max-simultaneous-net-exhaust (CAZ budget)** is required only when atmospheric appliances share the envelope. **Reference home (confirmed 2026-06-05): NO atmospheric appliances** — tankless water heaters are sealed and in a separately-sealed garage; propane fireplaces are sealed/direct-vent; the gas range is unvented but has no flue to backdraft (it is an *emission* source handled by ventilation, not a CAZ hazard). → **CAZ budget relaxed for this deployment; keep per-actuator max-runtime + the radon monitor.** ⚠️ But exhaust still carries an **allergen-infiltration** cost here (§0.4) — that penalty, not backdraft, is what limits exhaust strategies for this house.

@@ -92,6 +92,7 @@ class ActuatorRuntime:
     last_change: datetime | None = None
     last_command_sent: datetime | None = None  # last time the ON/OFF service fired (rearm cadence)
     overridden_until: datetime | None = None
+    divergence_since: datetime | None = None  # state≠command since (override confirmation, FR-L7b)
 
 
 class AeolusEngine:
@@ -225,11 +226,21 @@ class AeolusEngine:
         if new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return
         actual_on = new_state.state in (STATE_ON, STATE_OPEN)
-        # If reality diverges from what Aeolus commanded, a human/automation did
-        # it → yield control for a window (FR-L7). Our own commands converge.
+        act = self.actuators[act_id]
+        now = dt_util.utcnow()
+        # If reality diverges from what Aeolus commanded, a human/automation did it
+        # → yield control for a window (FR-L7). With an override grace (FR-L7b), the
+        # divergence must PERSIST that long before it counts — so a cloud actuator's
+        # transient flap (e.g. LG ThinQ unavailable→off→on) doesn't false-trigger.
         if actual_on != rt.commanded_on:
-            rt.overridden_until = dt_util.utcnow() + OVERRIDE_WINDOW
-            _LOGGER.debug("Actuator %s externally overridden", new_state.entity_id)
+            if act.override_grace <= timedelta(0):
+                rt.overridden_until = now + OVERRIDE_WINDOW  # immediate (default)
+                _LOGGER.debug("Actuator %s externally overridden", new_state.entity_id)
+            elif rt.divergence_since is None:
+                rt.divergence_since = now  # start the clock; confirmed in _evaluate
+        elif rt.divergence_since is not None:
+            rt.divergence_since = None  # re-converged within grace → ignore the flap
+            _LOGGER.debug("Actuator %s re-converged within grace (flap ignored)", new_state.entity_id)
 
     def actuator_is_overridden(self, act_id: str, now: datetime) -> bool:
         until = self._act_runtime[act_id].overridden_until
@@ -299,7 +310,23 @@ class AeolusEngine:
     def _evaluate(self, now: datetime) -> None:
         from . import controller  # lazy import to avoid a cycle
 
+        self._promote_pending_overrides(now)
         controller.evaluate(self, now)
+
+    @callback
+    def _promote_pending_overrides(self, now: datetime) -> None:
+        """Confirm a divergence that has outlasted its grace window (FR-L7b)."""
+        for act_id, rt in self._act_runtime.items():
+            if rt.divergence_since is None:
+                continue
+            grace = self.actuators[act_id].override_grace
+            if grace > timedelta(0) and now - rt.divergence_since >= grace:
+                rt.overridden_until = now + OVERRIDE_WINDOW
+                rt.divergence_since = None
+                _LOGGER.debug(
+                    "Actuator %s override confirmed (divergence outlasted %s)",
+                    self.actuators[act_id].entity_id, grace,
+                )
 
     # --- availability (entity-unavailable / log-when-unavailable) --------
     def space_available(self, space_id: str) -> bool:

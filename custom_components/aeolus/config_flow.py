@@ -30,6 +30,7 @@ from .const import (
     CONF_HIGH_PPM,
     CONF_MECHANISM,
     CONF_ON_SPEED_PCT,
+    CONF_OVERRIDE_GRACE_MIN,
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
     CONF_REARM_INTERVAL,
@@ -182,6 +183,11 @@ def _actuator_schema(
                     unit_of_measurement="%",
                 )
             ),
+            # Override confirmation delay (FR-L7b): minutes a divergence must persist
+            # before Aeolus yields. 0 = immediate. ~2 for cloud actuators (LG ThinQ).
+            vol.Optional(
+                CONF_OVERRIDE_GRACE_MIN, default=d.get(CONF_OVERRIDE_GRACE_MIN, 0)
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=30)),
             # Per-pathway outdoor-AQ source (FR-G3, v2.3): the PM sensor at THIS
             # actuator's intake (e.g. the AirVisual at the ERV intake). Falls back
             # to the space's sensor when unset.

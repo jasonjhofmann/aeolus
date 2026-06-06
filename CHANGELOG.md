@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — override confirmation window for cloud actuators (FR-L7b) (2026-06-06)
+- Per-actuator **"Manual-override confirmation delay (min)"**. A state divergence
+  (actuator reads ≠ what Aeolus commanded) must now *persist* this long before it's
+  treated as a manual override and triggers the 30-min yield. 0 = immediate (default,
+  unchanged). This stops a **cloud actuator** (LG ThinQ: ~1 min poll lag +
+  `unavailable→off→on` flaps) from false-triggering the yield — which had stranded the
+  Kitchen Range Hood off for 30 min. Engine tracks `divergence_since`; `_evaluate`
+  promotes it to a confirmed override once the grace elapses, and a re-converge within
+  the window cancels it. `tests/test_override_grace.py`. Spec → **v2.8** (FR-L7b).
+  Needs restart to take effect (new code + config field).
+
 ### Added — slope & ACH as first-class sensors (2026-06-06)
 - Each Space now exposes **`sensor.<space>_co2_slope`** (ppm/min) and
   **`sensor.<space>_air_change_rate`** (1/h) as their own measurement sensors —
