@@ -6,13 +6,18 @@
 
 ---
 
-## Status: 📋 Requirements stage (pre-alpha, no code yet)
+## Status: 🚧 v0.1 scaffold (contracts + read/observe slice; control loop stubbed)
 
-This repository currently contains the **specification only**. Nothing is built.
+The spec is settled and the core scaffold is in place. Built so far: the data
+model/contracts, the verified config-subentry flows, the push engine (no
+coordinator), the time-aware EMA + slope + gap-normalized ACH math (unit-tested),
+and the Space CO₂ sensor platform. The arbitration controller (FR-L\*) and safety
+vetoes (FR-G\*) are stubbed with signatures — they're the coupled core to build next.
 
-- **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.0).
-- **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — planned repository structure, module responsibilities, and the Quality-Scale roadmap.
+- **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.5).
+- **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.
 - **[CHANGELOG.md](CHANGELOG.md)** — spec history.
+- **`custom_components/aeolus/`** — the integration; **`tests/`** — pure-math unit tests.
 
 ## What it will do (one paragraph)
 

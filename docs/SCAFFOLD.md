@@ -1,6 +1,16 @@
 # Aeolus — Repository Scaffold Plan
 
-> Planned structure and module responsibilities for the eventual integration. **This is a plan, not code** — nothing here is implemented yet. It maps the [REQUIREMENTS](../REQUIREMENTS.md) onto a concrete HA-integration layout and the Quality-Scale rules each piece satisfies.
+> Repository structure + module responsibilities. The v0.1 core scaffold is now built; this maps [REQUIREMENTS](../REQUIREMENTS.md) onto the layout and the Quality-Scale rules.
+
+## v0.1 scaffold status (built 2026-06-05)
+
+**Built (real):** `manifest.json`, `hacs.json`, `const.py` (enums/keys/defaults), `models.py` (Space/Actuator/Influence + typed `AeolusConfigEntry`), `ema.py` (`TimeAwareEMA` + `SlopeTracker` — **unit-tested**), `estimator.py` (gap-normalized `effective_ach`, exponential time-to-target, reachability), `engine.py` (push engine, source subscriptions, per-space EMA/slope), `__init__.py` (lifecycle + subentry parsing), `config_flow.py` (parent + Space/Actuator subentry flows), `entity.py`, `sensor.py` (Space CO₂ + derived attrs), `services.py`, `strings.json`, `services.yaml`, `quality_scale.yaml`, `py.typed`, `pyproject.toml`, `tests/test_ema.py`.
+
+**Stubbed (next — the coupled core, build in-engine-context):** `controller.py` (FR-L\* arbitration/escalation) and `safety.py` (FR-G\* vetoes; `is_space_stale` + `outdoor_aq_blocks` are real, the rest pending wiring into a control tick). `PLATFORMS` is `[SENSOR]` only until the control platforms (`number`/`select`/`switch`/`binary_sensor`) exist.
+
+**Decisions reflected:** min HA **2025.4** (config subentries); **no DataUpdateCoordinator** → the file is `engine.py` (not `coordinator.py` as originally sketched); `models.py` (not `model.py`); `services.py` added for the action-setup rule.
+
+---
 
 ## Target directory tree
 

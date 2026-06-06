@@ -1,0 +1,13 @@
+{
+  "domain": "aeolus",
+  "name": "Aeolus",
+  "codeowners": ["@jasonjhofmann"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/jasonjhofmann/aeolus",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/jasonjhofmann/aeolus/issues",
+  "requirements": [],
+  "version": "0.0.1"
+}

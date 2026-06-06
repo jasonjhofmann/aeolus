@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aeolus",
+        "description": "Set up the Aeolus manager. Add Spaces and Actuators afterward from the integration's menu."
+      }
+    },
+    "abort": {
+      "already_configured": "Aeolus is already set up. Add Spaces and Actuators as subentries."
+    }
+  },
+  "config_subentries": {
+    "space": {
+      "title": "Space",
+      "step": {
+        "user": {
+          "title": "Add a Space",
+          "description": "A managed zone with one or more CO2 sensors.",
+          "data": {
+            "name": "Name",
+            "co2_sensors": "CO2 sensors",
+            "aggregation": "Sensor aggregation",
+            "target_ppm": "Target CO2 (ppm)",
+            "high_ppm": "High threshold (ppm)",
+            "volume_ft3": "Volume (ft3, optional)"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit Space",
+          "data": {
+            "name": "Name",
+            "co2_sensors": "CO2 sensors",
+            "aggregation": "Sensor aggregation",
+            "target_ppm": "Target CO2 (ppm)",
+            "high_ppm": "High threshold (ppm)",
+            "volume_ft3": "Volume (ft3, optional)"
+          }
+        }
+      }
+    },
+    "actuator": {
+      "title": "Actuator",
+      "step": {
+        "user": {
+          "title": "Add an Actuator",
+          "description": "A ventilation device that reduces CO2 by moving air. Note: recirculating air purifiers (HEPA/carbon) do NOT remove CO2.",
+          "data": {
+            "name": "Name",
+            "actuator_entity": "Entity",
+            "mechanism": "Air mechanism",
+            "filter_efficiency": "Intake filter efficiency (0-1)"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit Actuator",
+          "data": {
+            "name": "Name",
+            "actuator_entity": "Entity",
+            "mechanism": "Air mechanism",
+            "filter_efficiency": "Intake filter efficiency (0-1)"
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "aggregation": {
+      "options": {
+        "mean": "Mean",
+        "median": "Median",
+        "min": "Minimum",
+        "max": "Maximum (worst-case)"
+      }
+    },
+    "mechanism": {
+      "options": {
+        "balanced": "Balanced (ERV/HRV)",
+        "supply": "Supply (pressurizing)",
+        "exhaust": "Exhaust (depressurizing)",
+        "transfer": "Transfer (inter-zone)",
+        "window": "Window / opener"
+      }
+    }
+  },
+  "services": {
+    "recalibrate": {
+      "name": "Recalibrate",
+      "description": "Clear observed/learned actuator effectiveness for an Aeolus entry.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "The Aeolus config entry to recalibrate."
+        }
+      }
+    }
+  }
+}
