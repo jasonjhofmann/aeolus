@@ -112,6 +112,8 @@ async def test_manual_override_yields(hass: HomeAssistant) -> None:
         "input_boolean", "turn_off", {"entity_id": ACTUATOR}, blocking=True
     )
     await hass.async_block_till_done()
+    act_id = next(iter(engine.actuators))
+    assert engine.actuator_is_overridden(act_id, dt_util.utcnow()) is True
     engine.request_evaluation()
     await hass.async_block_till_done()
     assert hass.states.get(ACTUATOR).state == "off"

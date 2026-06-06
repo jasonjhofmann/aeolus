@@ -26,7 +26,9 @@ from homeassistant.const import (
 from homeassistant.core import (
     Event,
     EventStateChangedData,
+    EventStateReportedData,
     HomeAssistant,
+    State,
     callback,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -112,6 +114,7 @@ class AeolusEngine:
         self.min_off = timedelta(seconds=DEFAULT_MIN_OFF_SEC)
         self.paused = False  # master enable (switch); paused → controller no-ops
         self._runtime: dict[str, SpaceRuntime] = {}
+        self._space_available: dict[str, bool] = {}
         self._act_runtime: dict[str, ActuatorRuntime] = {}
         self._sensor_to_spaces: dict[str, list[str]] = {}
         self._actuator_by_entity: dict[str, str] = {}
@@ -134,14 +137,17 @@ class AeolusEngine:
 
         if source_ids := list(self._sensor_to_spaces):
             self._unsubs.append(
-                async_track_state_change_event(self.hass, source_ids, self._on_source_event)
+                async_track_state_change_event(self.hass, source_ids, self._on_source_changed)
             )
             self._unsubs.append(
-                async_track_state_report_event(self.hass, source_ids, self._on_source_event)
+                async_track_state_report_event(self.hass, source_ids, self._on_source_reported)
             )
             for sensor_id in source_ids:
                 if (state := self.hass.states.get(sensor_id)) is not None:
                     self._ingest(sensor_id, state.state, state.last_updated)
+
+        for space_id in self.spaces:
+            self._space_available[space_id] = self.space_available(space_id)
 
         if actuator_ids := list(self._actuator_by_entity):
             self._unsubs.append(
@@ -162,10 +168,24 @@ class AeolusEngine:
 
     # --- source ingest ---------------------------------------------------
     @callback
-    def _on_source_event(self, event: Event[EventStateChangedData]) -> None:
-        if (new_state := event.data.get("new_state")) is None:
+    def _on_source_changed(self, event: Event[EventStateChangedData]) -> None:
+        self._handle_source(event.data["new_state"])
+
+    @callback
+    def _on_source_reported(self, event: Event[EventStateReportedData]) -> None:
+        # State-report events fire when a sensor re-emits the same value with a
+        # fresh timestamp — needed so a time-aware EMA keeps aging.
+        self._handle_source(event.data["new_state"])
+
+    @callback
+    def _handle_source(self, new_state: State | None) -> None:
+        if new_state is None:
             return
         self._ingest(new_state.entity_id, new_state.state, new_state.last_updated)
+        # Availability fires on EVERY source change (incl. → unavailable), not
+        # just numeric ones, so entities reflect source dropouts (entity-unavailable).
+        for space_id in self._sensor_to_spaces.get(new_state.entity_id, ()):
+            self._refresh_availability(space_id)
 
     @callback
     def _ingest(self, sensor_id: str, raw: str, when: datetime) -> None:
@@ -256,6 +276,41 @@ class AeolusEngine:
         from . import controller  # lazy import to avoid a cycle
 
         controller.evaluate(self, now)
+
+    # --- availability (entity-unavailable / log-when-unavailable) --------
+    def space_available(self, space_id: str) -> bool:
+        """True if at least one of the space's CO2 sources is currently usable."""
+        space = self.spaces.get(space_id)
+        if space is None:
+            return False
+        for sensor_id in space.co2_sensors:
+            state = self.hass.states.get(sensor_id)
+            if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                continue
+            try:
+                float(state.state)
+            except (TypeError, ValueError):
+                continue
+            return True
+        return False
+
+    @callback
+    def _refresh_availability(self, space_id: str) -> None:
+        """Recompute availability; log + notify entities only on transitions."""
+        available = self.space_available(space_id)
+        if available == self._space_available.get(space_id):
+            return
+        self._space_available[space_id] = available
+        name = self.spaces[space_id].name
+        if available:
+            _LOGGER.info("Aeolus: CO2 source(s) for %s are available again", name)
+        else:
+            _LOGGER.warning(
+                "Aeolus: all CO2 sources for %s are unavailable — "
+                "entity unavailable, mitigation suspended",
+                name,
+            )
+        async_dispatcher_send(self.hass, signal_space_update(self.entry_id, space_id))
 
     # --- read API (entities + controller) --------------------------------
     def space_runtime(self, space_id: str) -> SpaceRuntime | None:

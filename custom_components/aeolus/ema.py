@@ -77,9 +77,15 @@ class TimeAwareEMA:
         self._last = timestamp
         return self.value
 
-    def seed(self, value: float | None, timestamp: datetime | None) -> None:
-        """Restore prior state (e.g. from RestoreSensor) across restarts (NFR-2)."""
-        if value is not None:
+    def seed(self, value: float | None, timestamp: datetime) -> None:
+        """Restore prior state across restarts (NFR-2).
+
+        Only seeds if not already initialized from a live sample (so a fresh
+        reading taken at startup is never clobbered by a stale restored value),
+        and records a real timestamp so the next sample *blends* rather than
+        re-initializing.
+        """
+        if value is not None and self._ema is None:
             self._ema = float(value)
             self._last = timestamp
 

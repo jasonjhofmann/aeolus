@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added/Changed — Silver + Platinum rules complete (2026-06-05)
+- **entity-unavailable + log-when-unavailable:** the Space CO₂ sensor + status binary sensors report `unavailable` when all of a space's CO₂ sources drop; the engine logs once per availability transition (warning on loss, info on recovery). Fixed a latent EMA-restore bug surfaced by this (seed now applies only when not already live, with a real timestamp → restart continuity actually blends instead of re-initializing).
+- **Coverage 98%, 66 tests** — every module ≥95% (engine closed via cover-branch, source garbage/out-of-range guards, min-off, and availability tests). Satisfies Silver `test-coverage`.
+- **strict-typing (Platinum):** `mypy --strict` clean across all 16 modules — split the state-change vs state-report handlers by event type, annotated all params, moved `EntityCategory` import to `homeassistant.const`, typed the restore guard.
+- **Quality scale: Silver 10/10 ✅, Platinum 3/3 ✅, Bronze 17/18** — only `brands` remains (needs icon artwork + a `home-assistant/brands` PR). `test-before-configure` / `test-before-setup` marked **exempt**: a calculated helper has no external service to verify, and absent source entities are handled per-entity (entity-unavailable) rather than by failing setup.
+
 ### Added — v1.1 induced/pressure edges + escalation (2026-06-05)
 - **Induced-edge control** (FR-L3/X3): an actuator with an `induced` influence on a target space runs only when the target isn't converging on its own (`CONVERGENCE_SLOPE_PPM_PER_MIN`) AND a named source space is meaningfully lower (`source.ema + gap_margin < target.ema`) — the canonical "ERV can't clear the bedroom → bath exhaust pulls down low Great-Room air" case. Direct + induced now both arbitrate; diffusive remains space↔space (not an actuator edge).
 

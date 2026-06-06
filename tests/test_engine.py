@@ -85,3 +85,28 @@ async def test_periodic_control_tick_runs(hass: HomeAssistant) -> None:
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=70))
     await hass.async_block_till_done()
     assert engine is not None  # tick fired without error
+
+
+async def test_garbage_and_out_of_range_source_ignored(hass: HomeAssistant) -> None:
+    engine = await _engine(hass)
+    sid = next(iter(engine.spaces))
+    baseline = engine.space_runtime(sid).ema_ppm  # 600 from _engine setup
+    hass.states.async_set("sensor.z_co2", "notanumber")  # parse guard + avail guard
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.z_co2", "55000")  # out-of-range guard
+    await hass.async_block_till_done()
+    assert engine.space_runtime(sid).ema_ppm == baseline  # neither moved the EMA
+
+
+async def test_min_off_blocks_quick_restart(hass: HomeAssistant) -> None:
+    engine = await _engine(hass)
+    act_id = next(iter(engine.actuators))
+    now = dt_util.utcnow()
+    engine.command_actuator(act_id, True, now)
+    engine.command_actuator(act_id, False, now + timedelta(seconds=601))  # off (min-on ok)
+    await hass.async_block_till_done()
+    assert hass.states.get(FAN).state == "off"
+    # turning back on within min-off (600 s) is suppressed
+    engine.command_actuator(act_id, True, now + timedelta(seconds=610))
+    await hass.async_block_till_done()
+    assert engine.actuator_runtime(act_id).commanded_on is False

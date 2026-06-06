@@ -16,11 +16,12 @@ from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import SUBENTRY_TYPE_SPACE
-from .engine import signal_space_update
+from .engine import AeolusEngine, signal_space_update
 from .entity import AeolusSpaceEntity
-from .models import AeolusConfigEntry
+from .models import AeolusConfigEntry, Space
 
 # Read-only derived entities (parallel-updates rule, Silver).
 PARALLEL_UPDATES = 0
@@ -52,7 +53,7 @@ class AeolusSpaceCO2Sensor(AeolusSpaceEntity, RestoreSensor):
     _attr_name = None  # the device (Space) name is the entity name
     _attr_should_poll = False
 
-    def __init__(self, engine, space) -> None:
+    def __init__(self, engine: AeolusEngine, space: Space) -> None:
         super().__init__(engine, space)
         self._attr_unique_id = f"{space.subentry_id}_co2"
 
@@ -61,8 +62,9 @@ class AeolusSpaceCO2Sensor(AeolusSpaceEntity, RestoreSensor):
         # Seed the EMA across restarts (NFR-2).
         if (last := await self.async_get_last_sensor_data()) is not None:
             rt = self._engine.space_runtime(self._space.subentry_id)
-            if rt is not None and last.native_value is not None:
-                rt.ema.seed(float(last.native_value), None)
+            value = last.native_value
+            if rt is not None and isinstance(value, (int, float)):
+                rt.ema.seed(float(value), dt_util.utcnow())
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -74,6 +76,10 @@ class AeolusSpaceCO2Sensor(AeolusSpaceEntity, RestoreSensor):
     @callback
     def _handle_update(self) -> None:
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        return self._engine.space_available(self._space.subentry_id)
 
     @property
     def native_value(self) -> float | None:

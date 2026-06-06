@@ -8,14 +8,14 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import SUBENTRY_TYPE_SPACE
-from .engine import signal_space_update
+from .engine import AeolusEngine, signal_space_update
 from .entity import AeolusSpaceEntity
-from .models import AeolusConfigEntry
+from .models import AeolusConfigEntry, Space
 from .safety import is_space_stale
 
 PARALLEL_UPDATES = 0
@@ -43,7 +43,7 @@ async def async_setup_entry(
 class _SpaceBinarySensor(AeolusSpaceEntity, BinarySensorEntity):
     _key: str
 
-    def __init__(self, engine, space) -> None:
+    def __init__(self, engine: AeolusEngine, space: Space) -> None:
         super().__init__(engine, space)
         self._attr_unique_id = f"{space.subentry_id}_{self._key}"
 
@@ -60,6 +60,10 @@ class _SpaceBinarySensor(AeolusSpaceEntity, BinarySensorEntity):
     @callback
     def _handle_update(self) -> None:
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        return self._engine.space_available(self._space.subentry_id)
 
 
 class AeolusMitigationActiveBinarySensor(_SpaceBinarySensor):

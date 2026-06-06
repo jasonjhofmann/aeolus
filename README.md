@@ -6,7 +6,7 @@
 
 ---
 
-## Status: 🚧 v0.1 — control loop closed + loads/tests green on HA 2026.2.3
+## Status: 🚧 Silver + Platinum rules complete; Bronze 17/18 (only `brands` art left)
 
 The spec is settled and the v0.1 MVP is implemented end-to-end: data model +
 verified config-subentry flows, the push engine (no coordinator), time-aware
@@ -27,7 +27,7 @@ python3 -m venv ~/venvs/aeolus
 ~/venvs/aeolus/bin/python -m pytest        # from the repo root
 ```
 
-**Next: expand to 100% config-flow coverage (Bronze) → >95% overall (Silver); brands PR + docs.**
+**Quality scale:** Silver 10/10 ✅, Platinum 3/3 ✅ (`mypy --strict` clean), Bronze 17/18 — the only open rule is **`brands`** (needs icon artwork + a `home-assistant/brands` PR; see `brand/`). **Next:** brand assets, then v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.5).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.

@@ -24,6 +24,7 @@ from .safety import is_space_stale, max_runtime_exceeded, outdoor_air_vetoed
 
 if TYPE_CHECKING:
     from .engine import AeolusEngine
+    from .models import Actuator, Influence
 
 
 def evaluate(engine: AeolusEngine, now: datetime) -> None:
@@ -66,7 +67,7 @@ def _space_demand(engine: AeolusEngine, now: datetime) -> dict[str, bool]:
     return demand
 
 
-def _actuator_wanted(engine: AeolusEngine, act, demand: dict[str, bool]) -> bool:
+def _actuator_wanted(engine: AeolusEngine, act: Actuator, demand: dict[str, bool]) -> bool:
     """True if any space this actuator should serve needs it now."""
     for inf in act.influences:
         if GAIN_ACH_PRIOR.get(inf.gain, 0.0) <= 0.0:
@@ -92,7 +93,7 @@ def _space_not_converging(engine: AeolusEngine, space_id: str) -> bool:
     return rt.slope_ppm_per_min >= -CONVERGENCE_SLOPE_PPM_PER_MIN
 
 
-def _induced_applicable(engine: AeolusEngine, inf) -> bool:
+def _induced_applicable(engine: AeolusEngine, inf: Influence) -> bool:
     """Induced edge is valid only when (a) the target isn't converging on its
     own (escalation, FR-L3) and (b) the source space is meaningfully lower than
     the target, so depressurization actually pulls cleaner air in (FR-X3)."""
@@ -102,6 +103,10 @@ def _induced_applicable(engine: AeolusEngine, inf) -> bool:
         return False
     src = engine.space_runtime(inf.source_space_id)
     tgt = engine.space_runtime(inf.space_id)
-    if src is None or tgt is None or src.ema_ppm is None or tgt.ema_ppm is None:
+    if src is None or tgt is None:
         return False
-    return src.ema_ppm + inf.gap_margin_ppm < tgt.ema_ppm
+    src_ppm = src.ema_ppm
+    tgt_ppm = tgt.ema_ppm
+    if src_ppm is None or tgt_ppm is None:
+        return False
+    return src_ppm + inf.gap_margin_ppm < tgt_ppm

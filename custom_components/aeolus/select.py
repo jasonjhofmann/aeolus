@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import SUBENTRY_TYPE_SPACE, SpaceMode
+from .engine import AeolusEngine
 from .entity import AeolusSpaceEntity
-from .models import AeolusConfigEntry
+from .models import AeolusConfigEntry, Space
 
 PARALLEL_UPDATES = 0
 
@@ -37,7 +38,7 @@ class AeolusModeSelect(AeolusSpaceEntity, SelectEntity, RestoreEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_options = [m.value for m in SpaceMode]
 
-    def __init__(self, engine, space) -> None:
+    def __init__(self, engine: AeolusEngine, space: Space) -> None:
         super().__init__(engine, space)
         self._attr_unique_id = f"{space.subentry_id}_mode"
 

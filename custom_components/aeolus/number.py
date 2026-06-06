@@ -12,8 +12,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import SUBENTRY_TYPE_SPACE
+from .engine import AeolusEngine
 from .entity import AeolusSpaceEntity
-from .models import AeolusConfigEntry
+from .models import AeolusConfigEntry, Space
 
 PARALLEL_UPDATES = 0
 
@@ -44,7 +45,7 @@ class AeolusTargetNumber(AeolusSpaceEntity, RestoreNumber):
     _attr_native_step = 10
     _attr_mode = NumberMode.BOX
 
-    def __init__(self, engine, space) -> None:
+    def __init__(self, engine: AeolusEngine, space: Space) -> None:
         super().__init__(engine, space)
         self._attr_unique_id = f"{space.subentry_id}_target"
 

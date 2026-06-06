@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigSubentryData
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
@@ -88,9 +89,10 @@ async def test_unload_entry(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
 
-async def test_sensor_restores_ema_across_restart(hass: HomeAssistant) -> None:
-    # Pre-seed the restore cache for the Space CO2 sensor, then set up with NO
-    # live source state — the sensor should seed its EMA from the restored value.
+async def test_sensor_restores_ema_for_continuity(hass: HomeAssistant) -> None:
+    # Restart scenario: a prior EMA of 760 is restored, but the source hasn't
+    # reported yet. The entity is unavailable until the source returns, and when
+    # it does the EMA *blends* from 760 (continuity) rather than cold-starting.
     mock_restore_cache_with_extra_data(
         hass,
         (
@@ -113,7 +115,13 @@ async def test_sensor_restores_ema_across_restart(hass: HomeAssistant) -> None:
             )
         ],
     )
-    entry.add_to_hass(hass)
+    entry.add_to_hass(hass)  # no live sensor.z_co2 state yet
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert float(hass.states.get("sensor.zone").state) == 760.0
+    assert hass.states.get("sensor.zone").state == STATE_UNAVAILABLE
+
+    hass.states.async_set("sensor.z_co2", "900")  # source returns
+    await hass.async_block_till_done()
+    state = hass.states.get("sensor.zone")
+    assert state.state != STATE_UNAVAILABLE
+    assert 755 <= float(state.state) <= 775  # blended from restored 760, not 900
