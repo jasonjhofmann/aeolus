@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Specification v2.3 (2026-06-05)
+- **FR-G3 upgraded to a per-pathway, filter-aware veto.** The veto sensor is assignable per outdoor-air influence (ERV intake vs. infiltration point vs. regional), and the trip quantity is the *estimated indoor PM contribution* = `outdoor_PM × (1 − filter_efficiency)` — so a filtered ERV tolerates higher outdoor PM than unfiltered infiltration. FR-C4 gains a per-actuator AQ source + filter efficiency.
+- Reference deployment: 3 particulate sensors — Western Trails AirVisual (regional, published→API→HA), a 2nd AirVisual at the ERV intake, a PurpleAir at the Primary Bedroom sliding door. (PurpleAir PMS5003 humidity-correction note.)
+
 ### Changed — Specification v2.2 (2026-06-05)
 - **Resolved §7.5 with the appliance inventory:** no atmospheric/natural-draft combustion in the main envelope (sealed tankless WHs in a separate sealed garage, sealed/direct-vent fireplaces, unvented gas range with no flue) → **strict CAZ net-exhaust budget dropped**; per-actuator max-runtime + radon monitor retained.
 - **Added §0.4 Household IAQ priority** (allergy/MCAS household, leaky envelope): allergen/PM protection is **co-primary** with CO₂; depressurizing/exhaust strategies are **health-penalized** (they pull unfiltered allergens through leaky doors) → prefer the filtered balanced ERV; outdoor-AQ veto elevated to a **low-threshold, multi-pollutant co-primary objective** (FR-G3); cooperate with the air purifiers, don't fight them.
