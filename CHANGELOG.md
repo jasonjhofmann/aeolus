@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Specification v2.5 (2026-06-05)
+- **Precise ERV filter facts** (it does have filters, just coarse ones): Broan ERV110T uses **2× washable 30-PPI foam pre-filters** (part `BRNS99010264`), ~MERV 1–4 — catches lint/large debris/some large pollen, negligible for fine PM2.5/smoke. Net conclusion from v2.4 unchanged (fine-PM `filter_efficiency` ≈ 0, gated as strictly as infiltration, MERV-13+ retrofit recommended), now with a marginal large-pollen credit + a maintenance-coupling note (dirty foam chokes airflow → don't assume rated CFM).
+
 ### Changed — Specification v2.4 (2026-06-05)
 - **Corrected the ERV filtration assumption.** The installed **Broan ERV110T** (discontinued) ships with only a foam pre-filter (~MERV 1–2; optional MERV 8) → effectively no PM2.5/allergen filtration. So the ERV does **not** get a relaxed PM-veto threshold; it's a PM-import path gated as strictly as unfiltered infiltration. Its advantage over exhaust is being *balanced* (no forced infiltration), not filtration. To earn the relaxed threshold: add an external inline MERV-13+ filter box on the supply (mind static pressure), or lean on the room HEPA purifiers (model ERV PM import vs. purifier CADR headroom). `filter_efficiency` clarified as the actual per-path value (foam≈0 / MERV8≈0.2 / MERV13≈0.5 / HEPA≈0.99).
 
