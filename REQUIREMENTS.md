@@ -1,0 +1,173 @@
+# Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
+**Requirements Specification — v2.0**
+
+| | |
+|---|---|
+| **Status** | Draft for review (no implementation) |
+| **Build target** | HA Integration Quality Scale — **Silver** |
+| **Architected for** | **Platinum** |
+| **Domain** | `aeolus` |
+| **iot_class** | `calculated` (local push) |
+| **Last updated** | 2026-06-05 |
+
+> **The name.** **Aeolus** is the Greek keeper of the winds — the figure who holds many separate winds and *releases each on demand*. That is precisely this integration: a controller that orchestrates multiple, cross-coupled air streams (ERV, exhausts, fans, windows) across rooms that share air, releasing the right one at the right time to manage CO₂. (Verify the slug is free on `home-assistant/brands` and PyPI before first release.)
+
+---
+
+## 0. Nature, positioning, and a correctness warning that reshapes the design
+- **0.1** Aeolus is a **calculated/local-push helper integration** (`iot_class: calculated`). It owns no hardware or cloud; it composes existing HA entities. Auth/reauth quality rules are therefore **exempt**.
+- **0.2** It is the air-quality sibling of Versatile Thermostat, but with a real **building-physics model** and **multi-zone (MIMO) shared-air coupling**, which VT does not have.
+- **0.3 — Critical domain correction (enforced in config, not just docs):** **CO₂ is a gas removed only by *air exchange* (ventilation/dilution), never by filtration.** HEPA, activated carbon (at room loadings), PCO, and ionizers do **not** reduce CO₂. The integration must **reject or hard-warn** when a recirculating air purifier is selected as a CO₂ actuator. Valid actuators move *outdoor* air in/out or move air *between zones of differing CO₂*. Encoded as FR-C8.
+
+---
+
+## 1. Physical model (the backbone — everything else derives from this)
+
+### 1.1 Single-zone mass balance
+A well-mixed zone of volume `V`:
+```
+V·dC/dt = G(t) + Q·C_out − Q·C
+⇒ dC/dt = G/V − λ·(C − C_out),   λ ≡ Q/V  (air-change rate, ACH)
+```
+- `C_out` — outdoor CO₂, the **hard asymptotic floor** (~420 ppm today; unreachable below it). Configurable, ideally **measured**.
+- `G` — generation (occupancy-driven; ~0.0046 L/s·person sedentary). The **disturbance**.
+- `λ` — effective air-change rate — **what actuators change.**
+
+### 1.2 Three consequences the software must respect
+- **R-PHYS-1 (exponential, not linear).** `C(t) − C_out = (C₀ − C_out)·e^(−λt)`. Time-to-target uses the exponential form: `t = (1/λ)·ln[(C₀ − C_out)/(C_target − C_out)]`.
+- **R-PHYS-2 (reachability).** Steady state `C_ss = C_out + G/Q`. A target is achievable only if `C_target > C_out + G/Q_max`; otherwise the space is **unreachable** — detect and report, don't run actuators forever.
+- **R-PHYS-3 (the right effectiveness metric).** Instantaneous slope `dC/dt = −λ(C − C_out) + G/V` is **gap-dependent** — the same fan looks "stronger" at higher CO₂. The comparable, concentration-independent effectiveness is the **air-change rate λ**, recovered by normalizing slope by the driving gap: `λ_eff ≈ −slope/(C − C_out)` during low-generation decay. Aeolus reports **both** raw slope (VT-style UX) and `effective_ach` (the principled metric; basis for gain identification).
+
+### 1.3 Multi-zone (MIMO) coupling — the heart of the problem
+```
+dC/dt = −M(u)·(C − C_out·𝟙) + g/V
+```
+`M(u)` = air-exchange matrix: diagonal = each zone's outdoor exchange; off-diagonal = inter-zone exchange. Actuators `u` modify `M`. **Induced/pressure couplings make `M(u)` bilinear** (an exhaust opens an inter-zone flow whose benefit depends on the *source* zone's concentration). Aeolus need not solve this matrix analytically, but its data model and controller must be a faithful explicit representation of it (FR-X*).
+
+---
+
+## 2. Domain model & terminology
+
+| Term | Definition |
+|---|---|
+| **Space** | A managed zone. 1..N CO₂ sensors → one aggregated value. Has volume `V`, target/thresholds, optional HA area, occupancy hint, outdoor-AQ veto reference. |
+| **Actuator** | A ventilation entity that changes `λ` or inter-zone flow: ERV/HRV (switch/fan/number/`select` boost), exhaust fan, supply fan, window opener (`cover`), transfer fan. On/off **or** variable. |
+| **Influence (Actuator→Space)** | Edge: **mechanism** (supply/exhaust/balanced/transfer), **sign & gain** (ΔACH bucket or measured), **transport lag**, **type** (direct/induced). |
+| **Air-share link (Space↔Space)** | Passive diffusive coupling; optionally **gated by a door/opening sensor**. |
+| **Induced influence** | An exhaust whose benefit to space *P* is **conditional** on a named **source space** being lower (depressurization-draws-cleaner-air). |
+| **Engine** | Central coordinator: sensor ingest, EMA/slope/λ estimator, occupancy/disturbance estimator, arbitration controller, safety supervisor. |
+
+---
+
+## 3. Functional requirements
+
+### 3.1 Configuration (UI; config subentries)
+- **FR-C1** All config via config flow + options/reconfigure flow. No YAML.
+- **FR-C2** **Config subentries**: one config entry; **Space** and **Actuator** are subentry types (add/edit/remove independently). Also satisfies Gold `dynamic-devices`/`stale-devices`.
+- **FR-C3 (Space)** name; HA area; CO₂ sensor selector (multi, `device_class: carbon_dioxide`); aggregation (mean/median/min/max/worst-case-max); **volume `V`** (manual or area×height); target ppm; elevated/high thresholds; optional **occupancy entity** for feedforward; optional **outdoor-AQ veto** entity + threshold; optional **radon entity** for the depressurization cross-check.
+- **FR-C4 (Actuator)** entity; **mechanism** (supply/exhaust/balanced/transfer/window); "active" definition (on/off, %≥N, preset∈set); rated airflow (CFM, optional gain prior); per-affected-space **influence rows** (gain bucket None/Low/Med/High or measured ΔACH; lag; type). For **induced** rows: **source space** + minimum gap margin. For **window/cover**: couple to outdoor-AQ veto by default.
+- **FR-C5** Air-share links: Space↔Space, strength, optional gating door/opening sensor.
+- **FR-C6 `test-before-configure`**: validate entities exist, correct domain/device_class, sensors emit numeric ppm in plausible range; reject with actionable text.
+- **FR-C7 `unique-config-entry`** + guard against a sensor double-counted across overlapping spaces.
+- **FR-C8 (§0.3 guard)** When an actuator suggests recirculating filtration (air_purifier device class / known purifier integrations), **block with an explanatory error / repair issue**.
+- **FR-C9** Altitude/pressure note: NDIR ppm readings are pressure-sensitive (installation may be at elevation); expose optional per-sensor offset/scale; document ABC-calibration assumptions (self-zero to ~400 ppm on periodic fresh-air exposure).
+
+### 3.2 Measurement & smoothing (EMA — Versatile Thermostat's `ema.py` scheme)
+- **FR-M1** Aggregate member sensors per space on any member update; compute **per-member freshness** (do NOT trust the aggregate timestamp — a mean keeps reporting fresh while a member is dead).
+- **FR-M2 Time-aware EMA**: `α = 1 − exp(ln(0.5)·Δt/halflife)`, `α = min(α, max_alpha)`, `ema = α·x + (1−α)·ema_prev`, init `ema = x₀`. Per-space `halflife_sec` (default 300), `max_alpha` (default 0.5; caps weight from long gaps — essential for irregular CO₂ cadence), `precision` (1 ppm). Reject Δt ≤ 0 and out-of-range readings.
+- **FR-M3** Expose raw aggregate and `ema_co2`.
+
+### 3.3 Slope, air-change estimation & prediction
+- **FR-S1** `co2_slope` (ppm/min, signed; negative = improving) = rate of change of the **EMA series**, itself lightly slope-smoothed. Also `co2_slope_per_hour`.
+- **FR-S2** `effective_ach` (R-PHYS-3): `−slope/(ema − C_out)` when generation is low/stable; cross-actuator-comparable effectiveness.
+- **FR-S3** `equilibrium_co2` estimate + **exponential** `time_to_target` (R-PHYS-1). Emit `diverging`/`unreachable` (R-PHYS-2) when applicable.
+- **FR-S4 Per-(actuator, space) identified gain**: from change in λ_eff when an actuator toggles (tracer-decay system-ID), gap-normalized. Diagnostic surface (e.g. "Primary Bath Exhaust → Primary Bedroom ≈ +0.4 ACH, induced, valid when Great Room < bedroom").
+- **FR-S5 Occupancy/disturbance estimate**: infer `G` from rise rate when ventilation is low; if an occupancy entity is configured, use it as **feedforward** (pre-ventilate ahead of known occupancy).
+
+### 3.4 Cross-space coupling
+- **FR-X1** Maintain the explicit influence graph = software image of `M(u)`: actuators, spaces, Actuator→Space edges (mechanism/gain/lag/type), Space↔Space air-share edges (optionally door-gated).
+- **FR-X2** Evaluate **all** spaces an actuator touches, including **negative/neutral** effects (a supply fan from a higher-CO₂ plenum can *raise* a zone — representable as a non-reducing/conditional edge).
+- **FR-X3** **Induced edges are conditional**: benefit to *P* applies only while `source_space.ema + margin < P.ema`; otherwise the actuator offers *P* nothing and must not be chosen for *P*.
+- **FR-X4** **Door/opening gating**: air-share and some induced paths suppressed when a gating sensor reads "closed."
+- **FR-X5** Gains **declarative first** (buckets). **Measured auto-calibration** (FR-S4) is opt-in (Gold maturity) — shared air makes clean attribution hard.
+- **FR-X6 Controllability check**: flag spaces not independently controllable by any direct actuator (e.g., reachable only via an induced path).
+
+### 3.5 Control / arbitration
+- **FR-L1** Per-space control on `(ema − target)` with **hysteresis/deadband**. A **PI** form (proportional + slow integral on the gap) preferred over pure bang-bang for variable actuators; derivative info from slope.
+- **FR-L2 Arbitration** across spaces: choose the actuator set maximizing covered over-threshold demand (coverage × gain), tie-broken by **cost** (energy/enthalpy, depressurization, outdoor-AQ risk). A shared ERV satisfying many spaces outranks many small fans.
+- **FR-L3 Strategy escalation (canonical use case)**: if a space is over target with its **direct** actuators active but **slope shows non-convergence** (FR-S3), escalate to **induced** actuators whose source space is currently low (FR-X3).
+- **FR-L4** Variable drive: proportional speed/preset where supported; on/off otherwise.
+- **FR-L5** Transport-lag aware: **min on/off**, post-actuation **settle window**, anti-windup — prevents hunting in a cross-coupled, dead-time system.
+- **FR-L6** Per-space mode: `manage` / `monitor-only` / `off`.
+- **FR-L7 Manual-override yield**: detect external changes to a managed actuator, mark `overridden`, yield for a configurable window, then resume.
+
+### 3.6 Safety, IAQ trade-offs & guardrails (non-optional)
+- **FR-G1 Combustion safety (CAZ depressurization).** Sustained net exhaust depressurizes the envelope → backdraft risk for atmospheric combustion appliances. Enforce **per-actuator max runtime** + **global max simultaneous net-exhaust**; document a worst-case-depressurization warning. Conservative defaults.
+- **FR-G2 Radon cross-effect.** Depressurization increases soil-gas radon entry. If a space has a radon entity, **monitor and veto/curb exhaust strategies** coinciding with rising radon.
+- **FR-G3 Outdoor-AQ veto.** Outdoor air imports PM2.5/ozone/smoke/pollen. **Block outdoor-air strategies (windows, high ERV, supply) when the configured outdoor-AQ sensor is over threshold.** Surface the CO₂-vs-PM trade-off explicitly; never silently swap hazards.
+- **FR-G4 Energy/enthalpy awareness.** Prefer **balanced ERV** over exhaust; allow energy as an arbitration cost (FR-L2). Optional gate on HVAC/VT state.
+- **FR-G5 Stale-sensor safety.** On per-member staleness/unavailability, **stop integration-initiated mitigation** for that space, set `status: stale`, log (`log-when-unavailable`, `entity-unavailable`).
+- **FR-G6** Idempotent, rate-limited commands; never short-cycle fans.
+
+### 3.7 Entities, attributes, devices
+- **FR-E1** One **device per space** (Gold `devices`); actuators linked via `via_device` where sensible.
+- **FR-E2** Per space: primary `sensor` (Space CO₂) with attributes `ema_co2`, `co2_slope`, `co2_slope_per_hour`, `effective_ach`, `equilibrium_co2`, `time_to_target`, `status` (ok/elevated/high/mitigating/diverging/unreachable/overridden/stale), `active_actuators`, `target`, `mode`, `estimated_occupancy`. Plus `binary_sensor` `mitigation_active` and `attention`.
+- **FR-E3** Control entities: `number` (target), `select` (mode), `switch` (master enable). All `has-entity-name`, `entity-unique-id`, `entity-device-class`, `entity-category`, sensible `entity-disabled-by-default` for advanced diagnostics, full `entity-translations`/`icon-translations` (Gold).
+- **FR-E4** Diagnostic entities: per-(actuator,space) identified gain, last decay-test results, per-sensor freshness, controllability flags.
+
+### 3.8 Services / actions
+- **FR-A1** `aeolus.set_target`, `set_mode`, `force_strategy` (manual actuator-set + duration; also runs a deliberate decay test for calibration), `recalibrate`/`reset_gains`.
+- **FR-A2** Registered in `async_setup` (`action-setup`), documented (`docs-actions`), raising **translated** typed exceptions (`action-exceptions`, `exception-translations`).
+
+---
+
+## 4. Canonical acceptance scenario (reference home → model)
+
+| Real element | Model representation |
+|---|---|
+| Whole-home **ERV** | Actuator, **balanced**; **direct** influences: Upper Level (High), most rooms (Med), Primary Bedroom (≈None). |
+| **Primary Bath Exhaust** | Actuator, **exhaust**; **induced** influence on **Primary Bedroom**, **source = Great Room**, gated on `Great Room EMA + margin < bedroom EMA`; capped by FR-G1/G2. |
+| Great Room ↔ Hallway ↔ Primary Bedroom | **Air-share links**; hallway link **door-gated**. |
+| Behavior under test | ERV runs (covers many spaces, low cost). Primary Bedroom stays high with non-converging slope (≈0 ACH from ERV) → escalate to Bath Exhaust; induced benefit valid because ERV already pulled the Great Room down; runtime capped, radon-watched. |
+
+Exercises direct + diffusive + induced + escalation + safety vetoes; the headline regression test.
+
+---
+
+## 5. Non-functional / Quality-Scale requirements
+
+### 5.1 Silver (build target — complete)
+`config-entry-unloading` (clean unsubscribe/teardown of all source listeners) · `entity-unavailable` + `log-when-unavailable` · `action-exceptions` · `parallel-updates` declared · `integration-owner` · `docs-configuration-parameters` + `docs-installation-parameters` · `test-coverage` >95% · (`reauthentication-flow` **N/A** — no auth). All **Bronze** rules are prerequisites (config-flow + tests, runtime-data, entity-event-setup, test-before-setup, brands, common-modules, dependency-transparency, docs set).
+
+### 5.2 Gold (architect for from day one)
+`devices` + `dynamic-devices` + `stale-devices` (spaces via subentries) · `diagnostics` (redacted: graph, gains, EMA/slope state, vetoes) · `repair-issues` (HEPA-selected, sensor-stale, unreachable target, outdoor-AQ blocking, radon-veto-active, uncontrollable space) · `reconfiguration-flow` · `entity-translations`/`icon-translations`/`exception-translations` · `entity-category`/`entity-device-class`/`entity-disabled-by-default` · full `docs-*` (use-cases, known-limitations, troubleshooting, data-update, examples). (`discovery*` **N/A**.)
+
+### 5.3 Platinum (the plan)
+`strict-typing` (fully typed, `mypy --strict`, `py.typed`) · `async-dependency` (all internal compute async/non-blocking; no blocking math libs — keep std-lib so trivially satisfied) · (`inject-websession` **N/A** — no HTTP). Platinum here ≈ strict typing + provably non-blocking engine, both achievable because the integration is dependency-free local compute.
+
+### 5.4 Reliability / performance / security
+- **NFR-1** Single push-based engine (coordinator), event-driven on source updates + a bounded periodic control tick (`appropriate-polling`); no per-entity HA polling.
+- **NFR-2 Restore across restart**: `RestoreEntity` for EMA/slope seeds + persisted identified gains; cold-start degrades gracefully.
+- **NFR-3** No secrets, no network egress (outdoor data via user-provided HA entities, not Aeolus calls).
+- **NFR-4** O(spaces + edges) per tick; trivially within HA budget.
+
+---
+
+## 6. Out of scope
+Temperature/HVAC control (pairs with Versatile Thermostat) · airflow/pressure *measurement* (inferred only) · code-compliance certification · CO (carbon-monoxide) life-safety detection · sorbent/biological CO₂ capture (negligible at room scale).
+
+## 7. Open decisions (resolve before MVP)
+1. **MVP slice** — recommend: spaces + sensors + EMA/slope/`effective_ach` + on/off **direct** actuators + threshold control + outdoor-AQ & stale vetoes. Defer induced edges, auto-calibration, variable drive, radon/CAZ caps to v1.1.
+2. **Primary entity** — `sensor`-centric (Silver-simple) vs. a bespoke "manager" entity like VT's climate. *Rec: sensor-centric v1.*
+3. **Gains** — qualitative buckets v1, measured ACH internal/Gold.
+4. **C_out source** — fixed constant, single outdoor sensor, or per-space? *Rec: one outdoor sensor, fallback constant 420.*
+5. **Combustion/radon caps (FR-G1/G2)** — appliance inventory (atmospheric vs sealed); radon veto in v1 or v1.1?
+
+---
+
+## Appendix A — Two design decisions that make this correct (not just "VT-for-CO₂")
+- **(a)** `effective_ach` (gap-normalized) is the comparison/learning metric, not raw slope. Raw ppm/min is fine for the dashboard but physically misleading for comparing actuators or learning gains, because it scales with current CO₂.
+- **(b)** Outdoor-AQ and radon vetoes are **hard guardrails**, not niceties. "Reduce CO₂ by exhausting" can import PM2.5 and pull radon from the slab; an air-quality manager that silently trades one hazard for another is a defect, not a feature.
+
+## Appendix B — Provenance
+The EMA/slope approach is modeled on Versatile Thermostat's `custom_components/versatile_thermostat/ema.py` (time-aware exponential moving average; `alpha` derived from a half-life and the actual inter-sample interval, capped by `max_alpha`; handles irregular sensor cadence) and its `temperature_slope` reporting — adapted here to CO₂ with the gap-normalized ACH extension.
