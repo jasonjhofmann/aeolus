@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigSubentryData
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    mock_restore_cache_with_extra_data,
+)
 
 from custom_components.aeolus.const import CONF_CO2_SENSORS, DOMAIN, SpaceMode
 
@@ -83,3 +86,34 @@ async def test_unload_entry(hass: HomeAssistant) -> None:
     entry, _ = await _setup_space(hass)
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_sensor_restores_ema_across_restart(hass: HomeAssistant) -> None:
+    # Pre-seed the restore cache for the Space CO2 sensor, then set up with NO
+    # live source state — the sensor should seed its EMA from the restored value.
+    mock_restore_cache_with_extra_data(
+        hass,
+        (
+            (
+                State("sensor.zone", "760"),
+                {"native_value": 760.0, "native_unit_of_measurement": "ppm"},
+            ),
+        ),
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        subentries_data=[
+            ConfigSubentryData(
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
+                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+            )
+        ],
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert float(hass.states.get("sensor.zone").state) == 760.0

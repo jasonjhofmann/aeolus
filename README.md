@@ -51,6 +51,29 @@ Two correctness points drive the whole design (see REQUIREMENTS §1, §0.3):
 1. **CO₂ is removed only by air exchange**, never by filtration — HEPA/carbon/PCO/ionizers do nothing for CO₂. Aeolus enforces this at config time.
 2. **CO₂ decay is exponential toward an outdoor floor (~420 ppm)**, so the comparable effectiveness metric is the **air-change rate (ACH)**, not raw ppm/min (which scales with how high CO₂ currently is). Aeolus reports both.
 
+## Installation
+
+**HACS (recommended):** add `https://github.com/jasonjhofmann/aeolus` as a *custom repository* (type: Integration), install **Aeolus**, then restart Home Assistant. **Manual:** copy `custom_components/aeolus/` into your HA `config/custom_components/` and restart. Requires Home Assistant **2025.4 or newer** (config subentries).
+
+Then **Settings → Devices & Services → Add Integration → Aeolus** to create the manager.
+
+## Configuration
+
+All configuration is in the UI. The single **Aeolus** entry holds two kinds of subentries:
+
+- **Space** — a managed zone. Pick its CO₂ sensor(s) and aggregation, a target and high threshold (ppm), optional volume, and an optional outdoor air-quality (PM) sensor + veto threshold.
+- **Actuator** — a ventilation device that reduces CO₂ (fan / switch / input_boolean / cover). Set its air *mechanism* (balanced ERV / supply / exhaust / transfer / window), the Spaces it directly serves, its intake filter efficiency (0–1), and an optional per-pathway intake AQ sensor.
+
+Per Space you get a CO₂ sensor (with slope + effective-ACH + time-to-target attributes), a mitigation/attention binary sensor, a target number, and a mode select (manage / monitor / off). A master **Management** switch pauses all control.
+
+## Actions
+
+- **`aeolus.recalibrate`** — clears observed/learned actuator effectiveness for an entry. Field: `config_entry_id`.
+
+## Removal
+
+Delete the **Aeolus** integration entry from Settings → Devices & Services (this removes its subentries, devices, and entities). For a manual install, also delete `custom_components/aeolus/` and restart. Aeolus never modifies the entities it reads or controls, so removing it simply stops the automatic ventilation control.
+
 ## License
 
 [Apache-2.0](LICENSE).

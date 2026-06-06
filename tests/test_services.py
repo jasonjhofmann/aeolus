@@ -32,3 +32,13 @@ async def test_recalibrate_unknown_entry_raises(hass: HomeAssistant) -> None:
         await hass.services.async_call(
             DOMAIN, SERVICE_RECALIBRATE, {"config_entry_id": "nope"}, blocking=True
         )
+
+
+async def test_recalibrate_unloaded_entry_raises(hass: HomeAssistant) -> None:
+    entry = await _loaded_entry(hass)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_RECALIBRATE, {"config_entry_id": entry.entry_id}, blocking=True
+        )

@@ -1,13 +1,12 @@
 """Mitigation control + arbitration (FR-L*) — v0.1.
 
-v0.1 scope (resolved MVP): per-space threshold/hysteresis on `direct` on/off
-actuators, simple coverage arbitration (an actuator runs if ANY managed space
-it directly serves needs mitigation and safety allows), min on/off cycling,
-per-actuator max-runtime, manual-override yield, stale-sensor safe-state, and
-the per-pathway outdoor-AQ veto.
+Scope: per-space threshold/hysteresis, coverage arbitration over `direct` AND
+`induced` actuators, min on/off cycling, per-actuator max-runtime, manual-
+override yield, stale-sensor safe-state, per-pathway outdoor-AQ veto, and
+direct→induced escalation (FR-L3/X3 — the canonical Primary-Bedroom case).
 
-Deferred to v1.1: induced/diffusive edges + escalation (FR-L3/X3), PI control,
-variable-speed drive (FR-L4), cost-weighted arbitration, occupancy feedforward.
+Deferred: PI control, variable-speed drive (FR-L4), cost-weighted arbitration,
+occupancy feedforward, diffusive air-share propagation.
 """
 
 from __future__ import annotations
@@ -15,7 +14,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from .const import GAIN_ACH_PRIOR, InfluenceType, SpaceMode
+from .const import (
+    CONVERGENCE_SLOPE_PPM_PER_MIN,
+    GAIN_ACH_PRIOR,
+    InfluenceType,
+    SpaceMode,
+)
 from .safety import is_space_stale, max_runtime_exceeded, outdoor_air_vetoed
 
 if TYPE_CHECKING:
@@ -63,10 +67,8 @@ def _space_demand(engine: AeolusEngine, now: datetime) -> dict[str, bool]:
 
 
 def _actuator_wanted(engine: AeolusEngine, act, demand: dict[str, bool]) -> bool:
-    """True if any managed space this actuator DIRECTLY reduces needs it now."""
+    """True if any space this actuator should serve needs it now."""
     for inf in act.influences:
-        if inf.influence_type is not InfluenceType.DIRECT:
-            continue  # v0.1: direct only
         if GAIN_ACH_PRIOR.get(inf.gain, 0.0) <= 0.0:
             continue  # non-reducing edge
         if not demand.get(inf.space_id, False):
@@ -74,5 +76,32 @@ def _actuator_wanted(engine: AeolusEngine, act, demand: dict[str, bool]) -> bool
         space = engine.spaces.get(inf.space_id)
         if space is None or outdoor_air_vetoed(engine.hass, act, space):
             continue  # FR-G3 per-pathway veto
-        return True
+        if inf.influence_type is InfluenceType.DIRECT:
+            return True
+        if inf.influence_type is InfluenceType.INDUCED and _induced_applicable(engine, inf):
+            return True
+        # DIFFUSIVE is a space↔space link, not an actuator edge — skip.
     return False
+
+
+def _space_not_converging(engine: AeolusEngine, space_id: str) -> bool:
+    """A space whose smoothed slope isn't falling fast enough (FR-L3 trigger)."""
+    rt = engine.space_runtime(space_id)
+    if rt is None or rt.slope_ppm_per_min is None:
+        return True  # no evidence it's improving → eligible to escalate
+    return rt.slope_ppm_per_min >= -CONVERGENCE_SLOPE_PPM_PER_MIN
+
+
+def _induced_applicable(engine: AeolusEngine, inf) -> bool:
+    """Induced edge is valid only when (a) the target isn't converging on its
+    own (escalation, FR-L3) and (b) the source space is meaningfully lower than
+    the target, so depressurization actually pulls cleaner air in (FR-X3)."""
+    if not _space_not_converging(engine, inf.space_id):
+        return False
+    if inf.source_space_id is None:
+        return False
+    src = engine.space_runtime(inf.source_space_id)
+    tgt = engine.space_runtime(inf.space_id)
+    if src is None or tgt is None or src.ema_ppm is None or tgt.ema_ppm is None:
+        return False
+    return src.ema_ppm + inf.gap_margin_ppm < tgt.ema_ppm

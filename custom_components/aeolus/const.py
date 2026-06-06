@@ -62,6 +62,9 @@ DEFAULT_MAX_RUNTIME_MIN: Final = 120
 DEFAULT_STALE_AFTER_SEC: Final = 1800
 # Clamp for effective_ach denominator (R-PHYS-3): avoid div-by-zero/negative.
 C_OUT_GAP_EPSILON_PPM: Final = 5.0
+# Escalation (FR-L3): a space is "not converging" if its smoothed slope isn't
+# falling faster than this (ppm/min) — i.e. its direct actuators aren't winning.
+CONVERGENCE_SLOPE_PPM_PER_MIN: Final = 1.0
 
 
 class Aggregation(StrEnum):

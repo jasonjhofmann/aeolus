@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — v1.1 induced/pressure edges + escalation (2026-06-05)
+- **Induced-edge control** (FR-L3/X3): an actuator with an `induced` influence on a target space runs only when the target isn't converging on its own (`CONVERGENCE_SLOPE_PPM_PER_MIN`) AND a named source space is meaningfully lower (`source.ema + gap_margin < target.ema`) — the canonical "ERV can't clear the bedroom → bath exhaust pulls down low Great-Room air" case. Direct + induced now both arbitrate; diffusive remains space↔space (not an actuator edge).
+
+### Changed — test + docs hardening (2026-06-05)
+- **62 tests, 96% coverage** on HA 2026.2.3 (config-flow 100%, most modules ≥95%; engine 92% — cover-actuator + override edges — is the remaining gap). Added estimator, subentry-flow, entity, safety, services, engine, controller-unit, induced, and outdoor-AQ suites.
+- **Bronze 15/18, Silver 7/10.** README docs sections added (Installation / Configuration / Actions / Removal) → docs-* rules done; `parallel-updates`, `action-exceptions`, `action-setup`, `config-flow-test-coverage` done. Remaining: `brands` (needs icon art + home-assistant/brands PR — see `brand/`), `test-before-configure`/`-setup`, `entity-unavailable`/`log-when-unavailable`, full per-module `test-coverage`, `strict-typing`.
+
 ### Changed — Specification v2.5 (2026-06-05)
 - **Precise ERV filter facts** (it does have filters, just coarse ones): Broan ERV110T uses **2× washable 30-PPI foam pre-filters** (part `BRNS99010264`), ~MERV 1–4 — catches lint/large debris/some large pollen, negligible for fine PM2.5/smoke. Net conclusion from v2.4 unchanged (fine-PM `filter_efficiency` ≈ 0, gated as strictly as infiltration, MERV-13+ retrofit recommended), now with a marginal large-pollen credit + a maintenance-coupling note (dirty foam chokes airflow → don't assume rated CFM).
 
