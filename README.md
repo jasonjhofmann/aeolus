@@ -6,7 +6,7 @@
 
 ---
 
-## Status: 🚧 v0.1 — control loop closed (untested in a live HA yet)
+## Status: 🚧 v0.1 — control loop closed + loads/tests green on HA 2026.2.3
 
 The spec is settled and the v0.1 MVP is implemented end-to-end: data model +
 verified config-subentry flows, the push engine (no coordinator), time-aware
@@ -14,9 +14,20 @@ EMA + slope + gap-normalized ACH (unit-tested), per-space **hysteresis control**
 with coverage arbitration over `direct` actuators, **safety vetoes** (stale
 safe-state, filter-aware outdoor-AQ veto, per-actuator max-runtime), manual-
 override yield, and all five entity platforms (sensor / binary_sensor / number /
-select / switch). Deferred to v1.1: induced/pressure edges + escalation, variable
-drive, full CAZ + radon veto, auto-calibration. **Next: load it in a dev HA and
-add config-flow + control tests toward Bronze/Silver.**
+select / switch). It loads in HA 2026.2.3 with the integration test harness and
+**13 tests pass** (EMA math, config flow, end-to-end setup, and the control loop
+actuating a real entity). Deferred to v1.1: induced/pressure edges + escalation,
+variable drive, full CAZ + radon veto, auto-calibration.
+
+### Testing
+
+```bash
+python3 -m venv ~/venvs/aeolus
+~/venvs/aeolus/bin/pip install pytest-homeassistant-custom-component
+~/venvs/aeolus/bin/python -m pytest        # from the repo root
+```
+
+**Next: expand to 100% config-flow coverage (Bronze) → >95% overall (Silver); brands PR + docs.**
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.5).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.
