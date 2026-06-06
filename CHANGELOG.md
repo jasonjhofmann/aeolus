@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed — brand icon/logo render locally (2026-06-05)
+- Moved `brand/` from the repo root into **`custom_components/aeolus/brand/`** so HA's
+  **Brands Proxy** (2026.3+) serves the integration's icon/logo (was "icon not
+  available"), and so HACS ships the assets on install. Matches the working VisiblAir
+  layout. Browser shows it after a hard refresh; the iOS Companion app (and first-time
+  proxy registration) need a full HA restart.
+
 ### Added — actuator `rearm_interval` (FR-L5b) (2026-06-05)
 - Per-actuator **re-arm interval** (minutes, optional). While a space still demands
   and the actuator is wanted, the engine re-sends the ON command every

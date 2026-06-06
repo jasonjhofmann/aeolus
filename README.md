@@ -27,7 +27,7 @@ python3 -m venv ~/venvs/aeolus
 ~/venvs/aeolus/bin/python -m pytest        # from the repo root
 ```
 
-**Quality scale:** Silver 10/10 ✅, Platinum 3/3 ✅ (`mypy --strict` clean), Bronze 17/18 — the only open rule is **`brands`** (needs icon artwork + a `home-assistant/brands` PR; see `brand/`). **Next:** brand assets, then v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
+**Quality scale:** Silver 10/10 ✅, Platinum 3/3 ✅ (`mypy --strict` clean), Bronze 17/18 — the only open rule is **`brands`** (needs icon artwork + a `home-assistant/brands` PR; assets ship in-package at `custom_components/aeolus/brand/` and render locally via HA's Brands Proxy). **Next:** the `home-assistant/brands` PR, then v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.5).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.

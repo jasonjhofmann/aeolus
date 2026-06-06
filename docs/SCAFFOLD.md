@@ -66,9 +66,10 @@ aeolus/
 │       ├── icons.json              # icon-translations
 │       ├── quality_scale.yaml      # rule-by-rule status (done/todo/exempt)
 │       ├── py.typed                # PEP-561 marker (Platinum strict-typing)
+│       ├── brand/                  # icon/logo (light+dark) — served by HA's Brands Proxy
+│       │                           #   (custom_components/<domain>/brand/, 2026.3+); ships via HACS
 │       └── translations/
 │           └── en.json
-├── brand/                          # local brand assets (icon/logo) until home-assistant/brands PR
 └── tests/
     ├── conftest.py
     ├── test_config_flow.py         # Bronze: config-flow-test-coverage
