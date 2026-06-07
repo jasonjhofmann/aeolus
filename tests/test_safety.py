@@ -48,7 +48,7 @@ def test_outdoor_aq_blocks_is_filter_aware():
 
 
 def test_max_runtime():
-    art = ActuatorRuntime(commanded_on=True, on_since=T)
+    art = ActuatorRuntime(commanded_setpoint=100, on_since=T)
     act = Actuator(
         subentry_id="a", name="A", entity_id="switch.x",
         mechanism=Mechanism.EXHAUST, max_runtime_min=10.0,

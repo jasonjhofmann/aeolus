@@ -85,14 +85,19 @@ class SpaceRuntime:
 
 @dataclass(slots=True)
 class ActuatorRuntime:
-    """Aeolus's command state for one actuator."""
+    """Aeolus's command state for one actuator. `commanded_setpoint` is 0..100
+    (0 = off; a fan %, or just on/off for switches/covers) — v3 variable drive."""
 
-    commanded_on: bool = False
+    commanded_setpoint: int = 0
     on_since: datetime | None = None
     last_change: datetime | None = None
-    last_command_sent: datetime | None = None  # last time the ON/OFF service fired (rearm cadence)
+    last_command_sent: datetime | None = None  # last time a service fired (rearm cadence)
     overridden_until: datetime | None = None
     divergence_since: datetime | None = None  # state≠command since (override confirmation, FR-L7b)
+
+    @property
+    def commanded_on(self) -> bool:
+        return self.commanded_setpoint > 0
 
 
 class AeolusEngine:
@@ -135,7 +140,8 @@ class AeolusEngine:
 
         for act_id, act in self.actuators.items():
             self._act_runtime[act_id] = ActuatorRuntime()
-            self._actuator_by_entity[act.entity_id] = act_id
+            for entity_id in (act.entities or [act.entity_id]):
+                self._actuator_by_entity[entity_id] = act_id  # multi-entity (FR-P8)
 
         if source_ids := list(self._sensor_to_spaces):
             self._unsubs.append(
@@ -246,56 +252,74 @@ class AeolusEngine:
         until = self._act_runtime[act_id].overridden_until
         return until is not None and now < until
 
-    def command_actuator(self, act_id: str, turn_on: bool, now: datetime) -> None:
-        """Drive an actuator on/off, honoring min on/off (FR-L5).
+    def command_actuator(self, act_id: str, level: int | bool, now: datetime) -> None:
+        """Drive an actuator to a setpoint (0..100; 0 = off), honoring min on/off
+        on the on↔off boundary (FR-L5). `level` may be a bool for on/off callers
+        (True → the fan's on-speed or full on; False → off).
 
-        Idempotent, with one exception: an actuator with `rearm_interval` set
-        re-sends the ON command periodically while still wanted (FR-L5b). That
-        defeats a load that auto-offs internally while its switch keeps reporting
-        `on` (e.g. the Primary-Bath toilet fan) — without a re-arm, Aeolus would
-        think it's still running and never restart it.
+        Idempotent, except: an actuator with `rearm_interval` re-sends its current
+        setpoint periodically while on (FR-L5b) — defeats a load that auto-offs
+        internally while its switch keeps reporting `on` (the Primary-Bath fan).
         """
         act = self.actuators[act_id]
         rt = self._act_runtime[act_id]
-        if turn_on == rt.commanded_on:
+        setpoint = self._resolve_setpoint(act, level)
+        if setpoint == rt.commanded_setpoint:
             if (
-                turn_on
+                setpoint > 0
                 and act.rearm_interval is not None
                 and not self.actuator_is_overridden(act_id, now)
                 and rt.last_command_sent is not None
                 and now - rt.last_command_sent >= act.rearm_interval
             ):
-                self._send_command(act, True, now)
+                self._send_command(act, setpoint, now)
             return
+        crossing_on = rt.commanded_setpoint == 0 and setpoint > 0
+        crossing_off = rt.commanded_setpoint > 0 and setpoint == 0
         if rt.last_change is not None:
             elapsed = now - rt.last_change
-            if turn_on and elapsed < self.min_off:
+            if crossing_on and elapsed < self.min_off:
                 return
-            if not turn_on and elapsed < self.min_on:
+            if crossing_off and elapsed < self.min_on:
                 return
-        rt.commanded_on = turn_on
-        rt.last_change = now
-        rt.on_since = now if turn_on else None
-        self._send_command(act, turn_on, now)
+        rt.commanded_setpoint = setpoint
+        if crossing_on or crossing_off:  # speed changes don't reset the cycle clock
+            rt.last_change = now
+            rt.on_since = now if setpoint > 0 else None
+        self._send_command(act, setpoint, now)
 
-    def _send_command(self, act: Actuator, turn_on: bool, now: datetime) -> None:
-        """Fire the on/off service for an actuator and stamp the send time."""
+    def _resolve_setpoint(self, act: Actuator, level: int | bool) -> int:
+        """bool → setpoint (True: a fan's on-speed, else full on; False: off);
+        int → clamped 0..100."""
+        if isinstance(level, bool):
+            if not level:
+                return 0
+            if act.entity_id.split(".", 1)[0] == "fan" and act.on_speed_pct is not None:
+                return act.on_speed_pct
+            return 100
+        return max(0, min(100, int(level)))
+
+    def _send_command(self, act: Actuator, setpoint: int, now: datetime) -> None:
+        """Drive every entity of the actuator to `setpoint` and stamp the send time
+        (FR-P7 variable drive, FR-P8 multi-entity group)."""
         self._act_runtime[act.subentry_id].last_command_sent = now
-        domain = act.entity_id.split(".", 1)[0]
-        data: dict[str, int | str] = {"entity_id": act.entity_id}
-        if domain == "cover":
-            service = SERVICE_OPEN_COVER if turn_on else SERVICE_CLOSE_COVER
-            service_domain = "cover"
-        else:  # fan / switch / input_boolean
-            service = SERVICE_TURN_ON if turn_on else SERVICE_TURN_OFF
-            service_domain = domain
-            # Fan on-speed (FR-L4b): drive a multi-speed fan at a chosen percentage
-            # instead of whatever speed it defaults to. The fan quantizes to its step.
-            if turn_on and domain == "fan" and act.on_speed_pct is not None:
-                data["percentage"] = act.on_speed_pct
-        self.hass.async_create_task(
-            self.hass.services.async_call(service_domain, service, data, blocking=False)
-        )
+        for entity_id in (act.entities or [act.entity_id]):
+            domain = entity_id.split(".", 1)[0]
+            data: dict[str, int | str] = {"entity_id": entity_id}
+            if domain == "cover":
+                service = SERVICE_OPEN_COVER if setpoint > 0 else SERVICE_CLOSE_COVER
+                service_domain = "cover"
+            elif setpoint <= 0:
+                service, service_domain = SERVICE_TURN_OFF, domain
+            else:  # fan / switch / input_boolean — on
+                service, service_domain = SERVICE_TURN_ON, domain
+                # Variable fan speed: send a percentage only for a partial speed;
+                # a full-on (100) or a switch is a plain turn_on.
+                if domain == "fan" and 0 < setpoint < 100:
+                    data["percentage"] = setpoint
+            self.hass.async_create_task(
+                self.hass.services.async_call(service_domain, service, data, blocking=False)
+            )
 
     # --- control tick ----------------------------------------------------
     @callback
