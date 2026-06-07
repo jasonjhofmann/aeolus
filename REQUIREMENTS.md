@@ -1,14 +1,14 @@
 # Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
-**Requirements Specification — v3.0 (draft — multi-pollutant scope expansion under review)**
+**Requirements Specification — v3.0**
 
 | | |
 |---|---|
-| **Status** | v1.1 **built, tested (76 tests, `mypy --strict`), deployed & live** on the author's HA (CO₂ control across 3 spaces, fan on-speed, override grace, reload-on-update). **§8 v3 expansion (multi-pollutant, graduated ventilation) is in requirements** — design under review, not yet built. |
+| **Status** | v1.1 **deployed & live** on the author's HA (CO₂ control across 3 spaces). **v3 (§8 — multi-pollutant, graduated ventilation) is BUILT & tested (75 tests, `mypy --strict` clean): generalized metrics, the staircase tier engine, multi-entity actuators, PM-aware safety, and the config-flow tier editor — committed & migration-safe, NOT yet deployed.** |
 | **Build target** | HA Integration Quality Scale — **Silver** |
 | **Architected for** | **Platinum** |
 | **Domain** | `aeolus` |
 | **iot_class** | `calculated` (local push) |
-| **Last updated** | 2026-06-05 |
+| **Last updated** | 2026-06-06 |
 
 > **The name.** **Aeolus** is the Greek keeper of the winds — the figure who holds many separate winds and *releases each on demand*. That is precisely this integration: a controller that orchestrates multiple, cross-coupled air streams (ERV, exhausts, fans, windows) across rooms that share air, releasing the right one at the right time to manage CO₂. (Verify the slug is free on `home-assistant/brands` and PyPI before first release.)
 
@@ -187,7 +187,7 @@ The EMA/slope approach is modeled on Versatile Thermostat's `custom_components/v
 
 ## 8. v3 Scope expansion — Multi-pollutant, graduated ventilation & filtration
 
-**Status:** requirements (2026-06-06). Expands Aeolus from single-pollutant (CO₂), essentially on/off control to **multi-pollutant, multi-tier (graduated) ventilation + filtration**. The CO₂ control already shipped becomes the 2-tier special case of a general staircase controller.
+**Status:** BUILT & tested (2026-06-06) — in the repo, migration-safe, **not yet deployed**. Expands Aeolus from single-pollutant (CO₂), essentially on/off control to **multi-pollutant, multi-tier (graduated) ventilation + filtration**. The CO₂ control already shipped is now the 2-tier special case of the general staircase controller.
 
 ### 8.1 Pollutants / metrics (FR-P)
 - **FR-P1** A Space may be driven by one or more **metrics**, each `(kind, sensor(s), aggregation)` where kind ∈ `co2 | pm1 | pm2_5 | pm10 | aqi | generic` (any numeric sensor). Aggregation reuses mean/median/min/**max**; **max = "if ANY listed sensor exceeds"** (the canonical example uses max of two PM sensors).
@@ -232,7 +232,8 @@ Below tier-1 release → all four off. As PM falls past each release threshold, 
 4. **CO₂ unification:** refactor the shipped CO₂ target/high onto the same staircase engine (recommended — one controller) vs keep CO₂ on its 2-level path and add tiers only for PM.
 5. **Cross-metric arbitration:** when one actuator is wanted by two metrics (e.g. hood for both CO₂ and PM) at different levels, take the **max** setpoint (recommended).
 
-### 8.7 Build phasing (proposed)
-- **v3.0-α:** generalized metric (PM/AQI kinds + max aggregation); pollutant-aware `filter` mechanism + relaxed FR-C8; per-actuator variable % drive.
-- **v3.0-β:** tier-ladder engine (staircase + hysteresis) + multi-entity actuators; the Kitchen scenario end-to-end.
-- **v3.0:** tier config-flow UI; PM-aware safety (filtration preference, exhaust outdoor-PM gating); full tests + acceptance scenario; spec finalized (drop "draft").
+### 8.7 Build phasing — DONE
+- ✅ **v3.0-α:** generalized metric (PM/AQI kinds + max aggregation); pollutant-aware `filter` mechanism; per-actuator variable % drive; backward-compat migration parser.
+- ✅ **v3.0-β:** per-metric staircase engine (engage/release hysteresis) + multi-entity actuators; the Kitchen scenario end-to-end (`test_tier_ladder`).
+- ✅ **v3.0:** config-flow metric→tier wizard (`test_tier_config_flow`); PM-aware safety = capability gate (filter ≠ CO₂, FR-P5) + outdoor-PM exhaust veto (FR-G3); 75 tests, `mypy --strict` clean; spec finalized.
+- **Deferred:** induced/pressure edges (FR-X3) not yet wired into the staircase (helper retained + unit-tested); a tier-editor that round-trips *edits* of an existing ladder field-by-field (today: re-author replaces); optional per-PM-metric sensor entities.

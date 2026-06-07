@@ -18,7 +18,7 @@
       "step": {
         "user": {
           "title": "Add a space",
-          "description": "A **Space** is a zone managed by CO₂ (e.g. Primary Bedroom). Choose its CO₂ sensor(s) and the levels Aeolus should hold.",
+          "description": "A **Space** is a zone managed by CO₂ (e.g. Primary Bedroom). Choose its CO₂ sensor(s) and the levels Aeolus should hold. Optionally add a graduated PM/AQI response too.",
           "data": {
             "name": "Name",
             "co2_sensors": "CO₂ sensor(s)",
@@ -27,22 +27,24 @@
             "high_ppm": "High threshold (ppm)",
             "volume_ft3": "Room volume (ft³)",
             "outdoor_aq_entity": "Outdoor air-quality (PM) sensor",
-            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (µg/m³)"
+            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (µg/m³)",
+            "add_graduated": "Add a graduated PM/AQI response →"
           },
           "data_description": {
             "name": "A friendly name for this zone — it becomes the device name.",
-            "co2_sensors": "One or more CO₂ sensors in this zone. Several are smoothed together into one reading.",
+            "co2_sensors": "One or more CO₂ sensors in this zone. Several are smoothed together into one reading. Leave empty for a particulate-only space.",
             "aggregation": "How to combine multiple sensors: Mean = average; Median = ignores a single outlier; Min/Max = best / worst-case.",
             "target_ppm": "Ventilation stops once the zone reaches this. ~800 ppm is good indoor air; fresh outdoor air is ~420 ppm.",
             "high_ppm": "Ventilation starts when the zone rises above this. Must be higher than the target — the gap between them is the deadband that prevents short-cycling.",
             "volume_ft3": "Optional, and currently NOT used. Reserved for the planned occupancy/generation (equilibrium-CO₂) estimate. The air-change-rate readout is gap-normalized and does not need volume.",
             "outdoor_aq_entity": "Optional. A PM2.5 sensor measuring this zone's outdoor air. When it's high, Aeolus won't pull outdoor air in.",
-            "outdoor_aq_threshold": "Optional. Block outdoor-air ventilation when the outdoor PM sensor exceeds this value."
+            "outdoor_aq_threshold": "Optional. Block outdoor-air ventilation when the outdoor PM sensor exceeds this value.",
+            "add_graduated": "Turn on to also drive actuators by a particulate/AQI ladder (e.g. PM2.5 > 30 → hood 20% + purifiers 33%; > 80 → everything 100%). The CO₂ settings above still apply."
           }
         },
         "reconfigure": {
           "title": "Edit space",
-          "description": "Update this zone's sensors and CO₂ levels.",
+          "description": "Update this zone's sensors and CO₂ levels. Turn on the graduated response to re-author its PM/AQI ladder (this replaces the existing one); leave it off to keep the current ladder.",
           "data": {
             "name": "Name",
             "co2_sensors": "CO₂ sensor(s)",
@@ -51,7 +53,8 @@
             "high_ppm": "High threshold (ppm)",
             "volume_ft3": "Room volume (ft³)",
             "outdoor_aq_entity": "Outdoor air-quality (PM) sensor",
-            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (µg/m³)"
+            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (µg/m³)",
+            "add_graduated": "Re-author the graduated PM/AQI response →"
           },
           "data_description": {
             "name": "A friendly name for this zone — it becomes the device name.",
@@ -61,7 +64,34 @@
             "high_ppm": "Ventilation starts when the zone rises above this. Must be higher than the target.",
             "volume_ft3": "Optional, currently not used (reserved for the planned generation/equilibrium-CO₂ estimate). The ACH readout is gap-normalized — volume-free.",
             "outdoor_aq_entity": "Optional. A PM2.5 sensor measuring this zone's outdoor air.",
-            "outdoor_aq_threshold": "Optional. Block outdoor-air ventilation when the outdoor PM sensor exceeds this value."
+            "outdoor_aq_threshold": "Optional. Block outdoor-air ventilation when the outdoor PM sensor exceeds this value.",
+            "add_graduated": "On = walk through the metric + tiers again, replacing the saved ladder. Off = keep the existing ladder unchanged."
+          }
+        },
+        "metric": {
+          "title": "Graduated response — pollutant",
+          "description": "Pick the particulate/AQI metric this ladder responds to, and its sensor(s). On the next screen(s) you'll set the response tiers.",
+          "data": {
+            "kind": "Pollutant",
+            "sensors": "Sensor(s)",
+            "aggregation": "Combine multiple sensors by"
+          },
+          "data_description": {
+            "kind": "What this ladder watches — PM1, PM2.5, PM10, an AQI, or any numeric sensor.",
+            "sensors": "One or more sensors for this pollutant in this zone.",
+            "aggregation": "How to combine them. **Maximum** = act if ANY sensor exceeds a tier (recommended for particulates)."
+          }
+        },
+        "tier": {
+          "title": "Graduated response — tier {tier}",
+          "description": "When the pollutant rises above the engage level, each actuator runs at the speed you set here (0 = off at this tier). Add higher tiers for stronger responses. Levels ramp back down automatically as the pollutant clears.",
+          "data": {
+            "engage_at": "Engage above",
+            "add_another_tier": "Add another (higher) tier"
+          },
+          "data_description": {
+            "engage_at": "The pollutant level (µg/m³ or AQI) at which this tier turns on. Release (turn-off) is automatic, ~15% below this.",
+            "add_another_tier": "Turn on to define a higher tier after this one; leave off to finish."
           }
         }
       }
@@ -73,12 +103,12 @@
       "step": {
         "user": {
           "title": "Add an actuator",
-          "description": "An **Actuator** lowers CO₂ by moving air — a fan, vent, ERV, or window opener. Note: recirculating air purifiers (HEPA/carbon) do **not** remove CO₂, so don't add those here.",
+          "description": "An **Actuator** moves or filters air. Fans/vents/ERV/windows lower CO₂ **and** particulates; a recirculating **air purifier** (mechanism *Filter*) lowers particulates only — it does **not** remove CO₂.",
           "data": {
             "name": "Name",
             "actuator_entity": "Device to control",
             "mechanism": "How it moves air",
-            "served_spaces": "Spaces it ventilates",
+            "served_spaces": "Spaces it ventilates (CO₂)",
             "filter_efficiency": "Intake filter efficiency (0–1)",
             "rearm_interval": "Re-arm interval (minutes)",
             "on_speed_pct": "Fan speed when on (%)",
@@ -86,13 +116,13 @@
           },
           "data_description": {
             "name": "A friendly name for this device.",
-            "actuator_entity": "The fan, switch, input_boolean, or cover Aeolus turns on/off.",
-            "mechanism": "Balanced = ERV/HRV, neutral pressure. Supply = pushes outdoor air in. Exhaust = pulls air out (depressurizes the home). Transfer = moves air between rooms. Window = an opener/cover.",
-            "served_spaces": "Which Space(s) this device ventilates — Aeolus runs it when one of them needs fresh air. (Create Spaces first; they appear in this list.)",
+            "actuator_entity": "The fan, switch, input_boolean, or cover Aeolus controls. (One actuator can drive a group later.)",
+            "mechanism": "Balanced = ERV/HRV, neutral pressure. Supply = pushes outdoor air in. Exhaust = pulls air out (depressurizes). Transfer = moves air between rooms. Window = an opener/cover. Filter = recirculating air purifier (PM only, not CO₂).",
+            "served_spaces": "Which Space(s) this device ventilates for CO₂ — Aeolus runs it when one of them is above its high threshold. (For particulate ladders, assign the actuator inside the Space's graduated response instead.)",
             "filter_efficiency": "How well this device's intake filters fine particles: 0 = none/foam, ~0.5 = MERV-13, 0.9+ = HEPA. A filtered intake is allowed to run when outdoor air is dirtier.",
-            "rearm_interval": "For a fan/switch whose load auto-offs on its own while the switch keeps reporting 'on', re-send the ON command this often (minutes) while still needed. 0 = off. Set just under the hardware auto-off — e.g. 14 for a fan that auto-offs at ~15–30 min.",
-            "on_speed_pct": "Fans only — the speed Aeolus sets when it turns this fan on (0 = leave at the fan's default). The fan snaps to its nearest step, e.g. a 5-speed range hood → 20/40/60/80/100%.",
-            "override_grace_min": "How long a hand/automation change must persist before Aeolus yields control. 0 = react immediately (default). Set ~2 for cloud devices (e.g. LG ThinQ) whose state briefly flaps to off/unavailable, so a 1-min cloud blip isn't mistaken for you taking over."
+            "rearm_interval": "For a fan/switch whose load auto-offs on its own while the switch keeps reporting 'on', re-send the ON command this often (minutes) while still needed. 0 = off.",
+            "on_speed_pct": "Fans only — the speed for the simple CO₂ on/off case (0 = the fan's default). Graduated PM tiers set their own per-tier speeds.",
+            "override_grace_min": "How long a hand/automation change must persist before Aeolus yields. 0 = immediate. Set ~2 for cloud devices (e.g. LG ThinQ) whose state briefly flaps."
           }
         },
         "reconfigure": {
@@ -102,7 +132,7 @@
             "name": "Name",
             "actuator_entity": "Device to control",
             "mechanism": "How it moves air",
-            "served_spaces": "Spaces it ventilates",
+            "served_spaces": "Spaces it ventilates (CO₂)",
             "filter_efficiency": "Intake filter efficiency (0–1)",
             "rearm_interval": "Re-arm interval (minutes)",
             "on_speed_pct": "Fan speed when on (%)",
@@ -111,12 +141,12 @@
           "data_description": {
             "name": "A friendly name for this device.",
             "actuator_entity": "The fan, switch, input_boolean, or cover Aeolus turns on/off.",
-            "mechanism": "Balanced = ERV/HRV, neutral pressure. Supply = pushes outdoor air in. Exhaust = pulls air out. Transfer = moves air between rooms. Window = an opener/cover.",
-            "served_spaces": "Which Space(s) this device ventilates.",
+            "mechanism": "Balanced = ERV/HRV. Supply = pushes outdoor air in. Exhaust = pulls air out. Transfer = between rooms. Window = opener/cover. Filter = recirculating purifier (PM only, not CO₂).",
+            "served_spaces": "Which Space(s) this device ventilates for CO₂.",
             "filter_efficiency": "Intake fine-particle filtration: 0 = none/foam, ~0.5 = MERV-13, 0.9+ = HEPA.",
-            "rearm_interval": "Re-send the ON command this often (minutes) for a load that auto-offs internally. 0 = off. ~14 for the Primary-Bath toilet fan.",
-            "on_speed_pct": "Fans only — % speed Aeolus sets on turn-on (0 = fan default). Snaps to the fan's step.",
-            "override_grace_min": "Minutes a manual change must persist before Aeolus yields. 0 = immediate. ~2 for cloud actuators (LG ThinQ) to ignore transient flaps."
+            "rearm_interval": "Re-send the ON command this often (minutes) for a load that auto-offs internally. 0 = off.",
+            "on_speed_pct": "Fans only — % speed for the simple CO₂ case (0 = fan default). PM tiers set their own speeds.",
+            "override_grace_min": "Minutes a manual change must persist before Aeolus yields. 0 = immediate. ~2 for cloud actuators (LG ThinQ)."
           }
         }
       }
@@ -131,13 +161,23 @@
         "max": "Maximum (worst-case)"
       }
     },
+    "metric_kind": {
+      "options": {
+        "pm1": "PM1 (µg/m³)",
+        "pm2_5": "PM2.5 (µg/m³)",
+        "pm10": "PM10 (µg/m³)",
+        "aqi": "Air-Quality Index",
+        "generic": "Other numeric sensor"
+      }
+    },
     "mechanism": {
       "options": {
         "balanced": "Balanced — ERV/HRV (neutral pressure)",
         "supply": "Supply — pushes outdoor air in",
         "exhaust": "Exhaust — pulls air out (depressurizes)",
         "transfer": "Transfer — moves air between rooms",
-        "window": "Window / opener"
+        "window": "Window / opener",
+        "filter": "Filter — recirculating air purifier (PM only)"
       }
     }
   },

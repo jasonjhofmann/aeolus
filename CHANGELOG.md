@@ -1,10 +1,30 @@
 # Changelog
 
-All notable changes to the Aeolus specification are documented here. The project is in the **requirements stage** — no integration code exists yet.
+All notable changes to the Aeolus integration are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+### Added — v3 multi-pollutant graduated ventilation: BUILT (§8) (2026-06-06)
+Implements the §8 expansion (committed; migration-safe; **not yet deployed**):
+- **Generalized metrics** — a Space can be driven by `pm1/pm2_5/pm10/aqi/generic` as well as
+  `co2`, each with its own sensors, **multi-sensor aggregation** (mean/median/min/**max** =
+  "if any exceeds"), and per-metric EMA/slope. New `MetricKind`; `Metric`/`Tier` models.
+- **Graduated staircase controller** — per-metric tier ladder with **engage/release hysteresis**
+  (`_active_tier`); per-actuator setpoint = **max** across all metrics. The shipped CO₂ control is
+  now the 2-tier special case (high→target), synthesized for backward compatibility.
+- **Pollutant-aware actuators** — new `filter` mechanism (recirculating purifier); `MECHANISM_REDUCES`
+  capability gate rejects a filter for CO₂ (FR-P5) and only uses an actuator for metrics it can
+  reduce. Exhaust/ERV stay gated on outdoor PM (FR-G3).
+- **Variable drive + groups** — setpoint-based commands (0–100): fan %, switch, cover; one actuator
+  can drive **multiple entities** (a purifier group) together (FR-P8).
+- **Config-flow tier editor** — a Space wizard (metric → tiers, per-actuator setpoints) authors the
+  ladder in the UI; reconfigure re-authors or preserves it. Full translations.
+- **Migration** — existing CO₂ spaces parse unchanged (read-time synthesis; no `.storage` rewrite).
+- **Tests**: `test_metrics_parse`, `test_tier_ladder` (Kitchen 30/50/80 acceptance + ramp-down +
+  filter-rejected-for-CO₂), `test_tier_config_flow`. **75 tests, `mypy --strict` clean.**
+- **Deferred**: induced edges (FR-X3) not yet wired into the staircase (helper retained + tested).
 
 ### Changed — Spec v3.0 (draft): multi-pollutant graduated ventilation (§8) (2026-06-06)
 - Major scope expansion captured in `REQUIREMENTS.md §8` (not yet built): drive Spaces by

@@ -168,21 +168,29 @@ def _build_metrics(
     high: float,
     actuators: dict[str, Actuator],
 ) -> list[Metric]:
-    """Explicit v3 metrics if configured; else synthesize the legacy CO₂ metric."""
-    raw = data.get(CONF_METRICS)
-    if raw:
-        return [_parse_metric(m) for m in raw]
-    # Legacy CO₂ → one metric, 2-tier ladder: off ≤ target, serving actuators on > high.
-    # Setpoint = the actuator's configured on-speed, else 100 (full on).
-    setpoints = {
-        aid: (act.on_speed_pct or 100)
-        for aid, act in actuators.items()
-        if any(inf.space_id == space_id for inf in act.influences)
-    }
-    tiers = (
-        [Tier(engage_at=high, release_at=target, setpoints=setpoints)] if co2_sensors else []
-    )
-    return [Metric(kind=MetricKind.CO2, sensors=co2_sensors, aggregation=aggregation, tiers=tiers)]
+    """Synthesized CO₂ metric (from the simple fields) MERGED with any explicit
+    PM/AQI metrics (CONF_METRICS). Keeps the simple CO₂ path while letting a Space
+    also carry graduated particulate ladders authored in the config flow."""
+    metrics: list[Metric] = []
+    if co2_sensors:
+        # 2-tier CO₂ ladder: off ≤ target; serving actuators on > high (at their
+        # on-speed, else 100). Mirrors the v1 high/target hysteresis.
+        setpoints = {
+            aid: (act.on_speed_pct or 100)
+            for aid, act in actuators.items()
+            if any(inf.space_id == space_id for inf in act.influences)
+        }
+        metrics.append(
+            Metric(
+                kind=MetricKind.CO2,
+                sensors=co2_sensors,
+                aggregation=aggregation,
+                tiers=[Tier(engage_at=high, release_at=target, setpoints=setpoints)],
+            )
+        )
+    for m in data.get(CONF_METRICS) or []:
+        metrics.append(_parse_metric(m))
+    return metrics
 
 
 def _parse_metric(m: Mapping[str, Any]) -> Metric:

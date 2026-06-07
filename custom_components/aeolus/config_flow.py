@@ -15,6 +15,7 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentry,
     ConfigSubentryFlow,
     SubentryFlowResult,
 )
@@ -29,6 +30,9 @@ from .const import (
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
+    CONF_METRIC_KIND,
+    CONF_METRIC_SENSORS,
+    CONF_METRICS,
     CONF_ON_SPEED_PCT,
     CONF_OVERRIDE_GRACE_MIN,
     CONF_OUTDOOR_AQ_ENTITY,
@@ -36,6 +40,9 @@ from .const import (
     CONF_REARM_INTERVAL,
     CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
+    CONF_TIER_ENGAGE,
+    CONF_TIER_SETPOINTS,
+    CONF_TIERS,
     CONF_VOLUME_FT3,
     DEFAULT_HIGH_PPM,
     DEFAULT_TARGET_PPM,
@@ -44,7 +51,12 @@ from .const import (
     SUBENTRY_TYPE_SPACE,
     Aggregation,
     Mechanism,
+    MetricKind,
 )
+
+# Step-local key: "also configure a graduated PM/AQI response" (not stored).
+CONF_ADD_GRADUATED = "add_graduated"
+CONF_ADD_ANOTHER_TIER = "add_another_tier"
 
 _CO2_SENSOR_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(
@@ -114,30 +126,162 @@ def _space_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             vol.Optional(
                 CONF_OUTDOOR_AQ_THRESHOLD, default=d.get(CONF_OUTDOOR_AQ_THRESHOLD)
             ): vol.Any(None, vol.Coerce(float)),
+            # v3: branch into the metric/tier wizard to add a graduated PM/AQI
+            # response (FR-P/FR-T). Off → just the simple CO₂ space above.
+            vol.Optional(CONF_ADD_GRADUATED, default=False): selector.BooleanSelector(),
         }
     )
 
 
+def _metric_schema() -> vol.Schema:
+    """Pick the pollutant + its sensors for one graduated metric (FR-P1)."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_METRIC_KIND, default=MetricKind.PM2_5.value): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[k.value for k in MetricKind if k is not MetricKind.CO2],
+                    translation_key="metric_kind",
+                )
+            ),
+            vol.Required(CONF_METRIC_SENSORS): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", multiple=True)
+            ),
+            vol.Optional(
+                CONF_AGGREGATION, default=Aggregation.MAX.value
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[a.value for a in Aggregation], translation_key="aggregation"
+                )
+            ),
+        }
+    )
+
+
+def _tier_schema(actuators: list[tuple[str, str]]) -> vol.Schema:
+    """One tier: its engage threshold + a setpoint (0 = inactive) per actuator.
+
+    Actuator fields are keyed by the actuator's title so the form labels them
+    legibly (dynamic keys can't be translated)."""
+    fields: dict[Any, Any] = {
+        vol.Required(CONF_TIER_ENGAGE): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0, max=2000, step=1, mode=selector.NumberSelectorMode.BOX
+            )
+        )
+    }
+    for title, _ in actuators:
+        fields[vol.Optional(title, default=0)] = selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0, max=100, step=5, mode=selector.NumberSelectorMode.SLIDER,
+                unit_of_measurement="%",
+            )
+        )
+    fields[vol.Optional(CONF_ADD_ANOTHER_TIER, default=False)] = selector.BooleanSelector()
+    return vol.Schema(fields)
+
+
 class SpaceSubentryFlow(ConfigSubentryFlow):
-    """Add / reconfigure a managed Space (FR-C3)."""
+    """Add / reconfigure a managed Space (FR-C3), optionally with graduated
+    PM/AQI metric ladders (FR-P/FR-T) authored via a metric → tier wizard."""
+
+    _basics: dict[str, Any]
+    _metrics: list[dict[str, Any]]
+    _tiers: list[dict[str, Any]]
+    _metric_kind: str
+    _metric_sensors: list[str]
+    _metric_agg: str
+    _reconfigure: bool
+    _title: str
+    _subentry: ConfigSubentry
+
+    def _actuators(self) -> list[tuple[str, str]]:
+        """(title, subentry_id) for each actuator on the parent entry."""
+        return [
+            (sub.title, sub_id)
+            for sub_id, sub in self._get_entry().subentries.items()
+            if sub.subentry_type == SUBENTRY_TYPE_ACTUATOR
+        ]
+
+    def _begin(self, user_input: dict[str, Any]) -> bool:
+        """Stash the basics; return whether to enter the graduated wizard."""
+        add = bool(user_input.pop(CONF_ADD_GRADUATED, False))
+        self._basics = user_input
+        self._title = user_input[CONF_NAME]
+        return add
+
+    def _finish(self) -> SubentryFlowResult:
+        data = dict(self._basics)
+        if self._metrics:
+            data[CONF_METRICS] = self._metrics
+        if self._reconfigure:
+            return self.async_update_and_abort(
+                self._get_entry(), self._subentry, title=self._title, data=data
+            )
+        return self.async_create_entry(title=self._title, data=data)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
+        self._reconfigure = False
         if user_input is not None:
-            return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
+            enter_wizard = self._begin(user_input)
+            self._metrics = []
+            return await self.async_step_metric() if enter_wizard else self._finish()
         return self.async_show_form(step_id="user", data_schema=_space_schema())
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        subentry = self._get_reconfigure_subentry()
+        self._reconfigure = True
+        self._subentry = self._get_reconfigure_subentry()
         if user_input is not None:
-            return self.async_update_and_abort(
-                self._get_entry(), subentry, title=user_input[CONF_NAME], data=user_input
-            )
+            enter_wizard = self._begin(user_input)
+            # Re-authoring replaces the metrics; otherwise carry them forward.
+            self._metrics = [] if enter_wizard else list(self._subentry.data.get(CONF_METRICS, []))
+            return await self.async_step_metric() if enter_wizard else self._finish()
         return self.async_show_form(
-            step_id="reconfigure", data_schema=_space_schema(dict(subentry.data))
+            step_id="reconfigure", data_schema=_space_schema(dict(self._subentry.data))
+        )
+
+    async def async_step_metric(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        if user_input is not None:
+            self._metric_kind = user_input[CONF_METRIC_KIND]
+            self._metric_sensors = list(user_input[CONF_METRIC_SENSORS])
+            self._metric_agg = user_input.get(CONF_AGGREGATION, Aggregation.MAX.value)
+            self._tiers = []
+            return await self.async_step_tier()
+        return self.async_show_form(step_id="metric", data_schema=_metric_schema())
+
+    async def async_step_tier(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        actuators = self._actuators()
+        if user_input is not None:
+            setpoints = {
+                aid: int(user_input.get(title) or 0)
+                for title, aid in actuators
+                if int(user_input.get(title) or 0) > 0
+            }
+            self._tiers.append(
+                {CONF_TIER_ENGAGE: float(user_input[CONF_TIER_ENGAGE]), CONF_TIER_SETPOINTS: setpoints}
+            )
+            if user_input.get(CONF_ADD_ANOTHER_TIER):
+                return await self.async_step_tier()
+            self._metrics.append(
+                {
+                    CONF_METRIC_KIND: self._metric_kind,
+                    CONF_METRIC_SENSORS: self._metric_sensors,
+                    CONF_AGGREGATION: self._metric_agg,
+                    CONF_TIERS: self._tiers,
+                }
+            )
+            return self._finish()
+        return self.async_show_form(
+            step_id="tier",
+            data_schema=_tier_schema(actuators),
+            description_placeholders={"tier": str(len(self._tiers) + 1)},
         )
 
 
