@@ -26,10 +26,19 @@ CONF_OCCUPANCY_ENTITY: Final = "occupancy_entity"
 CONF_OUTDOOR_AQ_ENTITY: Final = "outdoor_aq_entity"
 CONF_OUTDOOR_AQ_THRESHOLD: Final = "outdoor_aq_threshold"
 CONF_RADON_ENTITY: Final = "radon_entity"
+# --- v3 multi-pollutant metrics + tier ladders (FR-P/FR-T) ---
+CONF_METRICS: Final = "metrics"  # list of metric dicts on a Space
+CONF_METRIC_KIND: Final = "kind"  # MetricKind value
+CONF_METRIC_SENSORS: Final = "sensors"
+CONF_TIERS: Final = "tiers"  # ordered list of tier dicts on a metric
+CONF_TIER_ENGAGE: Final = "engage_at"
+CONF_TIER_RELEASE: Final = "release_at"
+CONF_TIER_SETPOINTS: Final = "setpoints"  # {actuator_subentry_id: pct 0..100}
 
 # --- Actuator subentry config keys (FR-C4) ---
 CONF_NAME: Final = "name"
 CONF_ACTUATOR_ENTITY: Final = "actuator_entity"
+CONF_ACTUATOR_ENTITIES: Final = "actuator_entities"  # v3: multi-entity group (FR-P8)
 CONF_MECHANISM: Final = "mechanism"
 CONF_INFLUENCES: Final = "influences"  # list of per-space influence rows
 CONF_SERVED_SPACES: Final = "served_spaces"  # v0.1: direct-reducing space ids
@@ -56,6 +65,8 @@ DEFAULT_PRECISION: Final = 1
 DEFAULT_C_OUT_PPM: Final = 420.0
 DEFAULT_TARGET_PPM: Final = 800
 DEFAULT_HIGH_PPM: Final = 1000
+# Tier hysteresis (FR-T3): default release threshold = engage × this fraction.
+DEFAULT_RELEASE_FRACTION: Final = 0.85
 # Control loop / safety (FR-L5, FR-G1)
 DEFAULT_CONTROL_TICK_SEC: Final = 60
 DEFAULT_MIN_ON_SEC: Final = 600
@@ -87,6 +98,7 @@ class Mechanism(StrEnum):
     EXHAUST = "exhaust"  # depressurizes → infiltration (FR-G1/§0.4)
     TRANSFER = "transfer"  # inter-zone fan
     WINDOW = "window"  # cover/opener
+    FILTER = "filter"  # recirculating HEPA/purifier — removes PM, NOT CO2 (FR-P4)
 
 
 class InfluenceType(StrEnum):
@@ -121,4 +133,44 @@ GAIN_ACH_PRIOR: Final[dict[Gain, float]] = {
     Gain.LOW: 0.3,
     Gain.MEDIUM: 0.8,
     Gain.HIGH: 1.5,
+}
+
+
+class MetricKind(StrEnum):
+    """What a Space metric measures (FR-P1). CO2 is the original; the rest are v3."""
+
+    CO2 = "co2"
+    PM1 = "pm1"
+    PM2_5 = "pm2_5"
+    PM10 = "pm10"
+    AQI = "aqi"
+    GENERIC = "generic"
+
+
+# Asymptotic floor per metric (R-PHYS). CO2 → outdoor ~420; PM/AQI/generic → 0
+# (PM's true floor is the live outdoor PM, applied in safety, not here).
+METRIC_FLOOR: Final[dict[MetricKind, float]] = {
+    MetricKind.CO2: DEFAULT_C_OUT_PPM,
+    MetricKind.PM1: 0.0,
+    MetricKind.PM2_5: 0.0,
+    MetricKind.PM10: 0.0,
+    MetricKind.AQI: 0.0,
+    MetricKind.GENERIC: 0.0,
+}
+
+_PM_KINDS: Final = frozenset(
+    {MetricKind.PM1, MetricKind.PM2_5, MetricKind.PM10, MetricKind.AQI, MetricKind.GENERIC}
+)
+_ALL_KINDS: Final = frozenset(MetricKind)
+
+# Which metric kinds each mechanism can actually reduce (FR-P4/P5). A recirculating
+# FILTER (air purifier) removes PM/odor but NEVER CO2; air-moving mechanisms reduce
+# everything (outdoor-PM import for supply/balanced is handled by the safety veto).
+MECHANISM_REDUCES: Final[dict[Mechanism, frozenset[MetricKind]]] = {
+    Mechanism.FILTER: _PM_KINDS,
+    Mechanism.EXHAUST: _ALL_KINDS,
+    Mechanism.SUPPLY: _ALL_KINDS,
+    Mechanism.BALANCED: _ALL_KINDS,
+    Mechanism.TRANSFER: _ALL_KINDS,
+    Mechanism.WINDOW: _ALL_KINDS,
 }

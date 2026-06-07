@@ -18,11 +18,32 @@ from .const import (
     Gain,
     InfluenceType,
     Mechanism,
+    MetricKind,
     SpaceMode,
 )
 
 if TYPE_CHECKING:
     from .engine import AeolusEngine
+
+
+@dataclass(slots=True)
+class Tier:
+    """One rung of a metric's graduated response (FR-T1). `setpoints` maps an
+    actuator subentry_id → level (0..100): a fan %, or >0/0 = on/off for a switch."""
+
+    engage_at: float
+    release_at: float
+    setpoints: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Metric:
+    """One pollutant a Space is driven by (FR-P1), with its tier ladder (FR-T)."""
+
+    kind: MetricKind
+    sensors: list[str]
+    aggregation: Aggregation = Aggregation.MEAN
+    tiers: list[Tier] = field(default_factory=list)  # ascending by engage_at
 
 
 @dataclass(slots=True)
@@ -42,6 +63,9 @@ class Space:
     outdoor_aq_threshold: float | None = None
     radon_entity: str | None = None
     mode: SpaceMode = SpaceMode.MANAGE
+    # v3 (FR-P): one or more metrics with tier ladders. Synthesized from the legacy
+    # CO₂ fields above for old subentries; the engine migrates to these in v3-β.
+    metrics: list[Metric] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -63,9 +87,12 @@ class Actuator:
 
     subentry_id: str
     name: str
-    entity_id: str
+    entity_id: str  # primary entity (= entities[0]); engine uses entities for commands
     mechanism: Mechanism
     influences: list[Influence] = field(default_factory=list)
+    # v3 (FR-P8): one actuator may drive several same-domain entities (a group of
+    # purifiers) together. Defaults to [entity_id] for single-entity actuators.
+    entities: list[str] = field(default_factory=list)
     # outdoor-air pathways carry their own AQ source + filtration (FR-G3, v2.3/2.5):
     outdoor_aq_entity: str | None = None
     filter_efficiency: float = 0.0  # PM2.5 capture, 0=foam/none … 0.99=HEPA
