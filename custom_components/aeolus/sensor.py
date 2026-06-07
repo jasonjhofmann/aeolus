@@ -67,9 +67,10 @@ class AeolusSpaceCO2Sensor(AeolusSpaceEntity, RestoreSensor):
         # Seed the EMA across restarts (NFR-2).
         if (last := await self.async_get_last_sensor_data()) is not None:
             rt = self._engine.space_runtime(self._space.subentry_id)
+            metric = rt.primary_metric if rt is not None else None
             value = last.native_value
-            if rt is not None and isinstance(value, (int, float)):
-                rt.ema.seed(float(value), dt_util.utcnow())
+            if metric is not None and isinstance(value, (int, float)):
+                metric.ema.seed(float(value), dt_util.utcnow())
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,

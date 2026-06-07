@@ -16,11 +16,8 @@ from custom_components.aeolus.const import (
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
     DOMAIN,
-    Gain,
-    InfluenceType,
     Mechanism,
 )
-from custom_components.aeolus.models import Influence
 
 ERV = "input_boolean.erv"
 
@@ -64,9 +61,7 @@ async def _setup(hass: HomeAssistant, outdoor_pm: str, filter_eff: float) -> Moc
     engine = entry.runtime_data.engine
     space_id = next(iter(engine.spaces))
     act_id = next(iter(engine.actuators))
-    engine.actuators[act_id].influences = [
-        Influence(space_id=space_id, gain=Gain.MEDIUM, influence_type=InfluenceType.DIRECT)
-    ]
+    engine.spaces[space_id].metrics[0].tiers[0].setpoints[act_id] = 100
     engine.request_evaluation()
     await hass.async_block_till_done()
     return entry

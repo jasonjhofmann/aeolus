@@ -24,14 +24,21 @@ OUTDOOR_AIR_MECHANISMS = frozenset(
 )
 
 
+def is_stale(
+    member_seen: dict[str, datetime], now: datetime, *, stale_after_sec: float = DEFAULT_STALE_AFTER_SEC
+) -> bool:
+    """True if EVERY member is stale — don't trust the aggregate timestamp (FR-M1/G5)."""
+    if not member_seen:
+        return True
+    cutoff = now - timedelta(seconds=stale_after_sec)
+    return all(seen < cutoff for seen in member_seen.values())
+
+
 def is_space_stale(
     rt: SpaceRuntime, now: datetime, *, stale_after_sec: float = DEFAULT_STALE_AFTER_SEC
 ) -> bool:
-    """True if EVERY member is stale — don't trust the aggregate timestamp (FR-M1/G5)."""
-    if not rt.member_seen:
-        return True
-    cutoff = now - timedelta(seconds=stale_after_sec)
-    return all(seen < cutoff for seen in rt.member_seen.values())
+    """Per-space staleness via the primary metric's members (FR-M1/G5)."""
+    return is_stale(rt.member_seen, now, stale_after_sec=stale_after_sec)
 
 
 def outdoor_aq_blocks(outdoor_pm: float, filter_efficiency: float, threshold_pm: float) -> bool:

@@ -7,11 +7,10 @@ from datetime import UTC, datetime, timedelta
 from homeassistant.core import HomeAssistant
 
 from custom_components.aeolus.const import Mechanism
-from custom_components.aeolus.ema import SlopeTracker, TimeAwareEMA
-from custom_components.aeolus.engine import ActuatorRuntime, SpaceRuntime
+from custom_components.aeolus.engine import ActuatorRuntime
 from custom_components.aeolus.models import Actuator, Space
 from custom_components.aeolus.safety import (
-    is_space_stale,
+    is_stale,
     max_runtime_exceeded,
     outdoor_air_vetoed,
     outdoor_aq_blocks,
@@ -20,26 +19,16 @@ from custom_components.aeolus.safety import (
 T = datetime(2026, 1, 1, 12, tzinfo=UTC)
 
 
-def _rt() -> SpaceRuntime:
-    return SpaceRuntime(
-        ema=TimeAwareEMA(300), slope=SlopeTracker(smoothing_halflife_sec=300)
-    )
-
-
 def test_stale_when_no_members():
-    assert is_space_stale(_rt(), T) is True
+    assert is_stale({}, T) is True
 
 
 def test_not_stale_when_recent():
-    rt = _rt()
-    rt.member_seen["s"] = T
-    assert is_space_stale(rt, T + timedelta(seconds=60)) is False
+    assert is_stale({"s": T}, T + timedelta(seconds=60)) is False
 
 
 def test_stale_after_window():
-    rt = _rt()
-    rt.member_seen["s"] = T
-    assert is_space_stale(rt, T + timedelta(seconds=2000)) is True
+    assert is_stale({"s": T}, T + timedelta(seconds=2000)) is True
 
 
 def test_outdoor_aq_blocks_is_filter_aware():

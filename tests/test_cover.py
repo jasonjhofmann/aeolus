@@ -10,10 +10,7 @@ from custom_components.aeolus.const import (
     CONF_ACTUATOR_ENTITY,
     CONF_CO2_SENSORS,
     DOMAIN,
-    Gain,
-    InfluenceType,
 )
-from custom_components.aeolus.models import Influence
 
 COVER = "cover.window"
 
@@ -43,9 +40,7 @@ async def test_cover_actuator_command_branch(hass: HomeAssistant) -> None:
     engine = entry.runtime_data.engine
     sid = next(iter(engine.spaces))
     aid = next(iter(engine.actuators))
-    engine.actuators[aid].influences = [
-        Influence(space_id=sid, gain=Gain.MEDIUM, influence_type=InfluenceType.DIRECT)
-    ]
+    engine.spaces[sid].metrics[0].tiers[0].setpoints[aid] = 100
     engine.request_evaluation()
     await hass.async_block_till_done()
     # cover branch of command_actuator executed (open_cover dispatched)

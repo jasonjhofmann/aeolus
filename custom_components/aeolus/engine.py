@@ -47,10 +47,28 @@ from .const import (
     DEFAULT_MIN_OFF_SEC,
     DEFAULT_MIN_ON_SEC,
     DOMAIN,
+    METRIC_FLOOR,
+    Aggregation,
+    MetricKind,
 )
 from .ema import SlopeTracker, TimeAwareEMA
 from .estimator import effective_ach, time_to_target_min
-from .models import Actuator, Space
+from .models import Actuator, Metric, Space
+
+
+def _aggregate(values: list[float], aggregation: Aggregation) -> float:
+    """Combine a metric's member-sensor values (FR-M1). MAX = 'if ANY exceeds'."""
+    if aggregation is Aggregation.MAX:
+        return max(values)
+    if aggregation is Aggregation.MIN:
+        return min(values)
+    if aggregation is Aggregation.MEDIAN:
+        ordered = sorted(values)
+        mid = len(ordered) // 2
+        if len(ordered) % 2:
+            return ordered[mid]
+        return (ordered[mid - 1] + ordered[mid]) / 2.0
+    return sum(values) / len(values)  # MEAN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,23 +82,63 @@ def signal_space_update(entry_id: str, space_id: str) -> str:
 
 
 @dataclass(slots=True)
-class SpaceRuntime:
-    """Live derived state for one Space."""
+class MetricRuntime:
+    """Live derived state for ONE metric of a Space (FR-P/FR-T)."""
 
+    kind: MetricKind
     ema: TimeAwareEMA
     slope: SlopeTracker
-    last_raw_ppm: float | None = None
-    mitigating: bool = False  # hysteresis latch (FR-L1)
+    floor: float
+    last_raw: float | None = None
+    active_tier: int = -1  # staircase hysteresis (FR-T3); -1 = no tier engaged
     member_seen: dict[str, datetime] = field(default_factory=dict)
 
     @property
-    def ema_ppm(self) -> float | None:
+    def value(self) -> float | None:
         return self.ema.value
 
     @property
-    def slope_ppm_per_min(self) -> float | None:
+    def slope_per_min(self) -> float | None:
         per_sec = self.slope.per_second
         return None if per_sec is None else round(per_sec * 60.0, 2)
+
+
+@dataclass(slots=True)
+class SpaceRuntime:
+    """Per-space runtime: one MetricRuntime per metric + the mitigation latch.
+
+    The space-level read API (ema_ppm/slope/member_seen) proxies the *primary*
+    metric (the CO₂ one if present, else the first) so the existing Space CO₂
+    sensor + slope/ACH entities keep working unchanged.
+    """
+
+    metrics: list[MetricRuntime]
+    primary: int = 0
+    mitigating: bool = False  # any metric tier engaged (FR-L1)
+
+    @property
+    def primary_metric(self) -> MetricRuntime | None:
+        return self.metrics[self.primary] if self.metrics else None
+
+    @property
+    def ema_ppm(self) -> float | None:
+        m = self.primary_metric
+        return None if m is None else m.value
+
+    @property
+    def slope_ppm_per_min(self) -> float | None:
+        m = self.primary_metric
+        return None if m is None else m.slope_per_min
+
+    @property
+    def last_raw_ppm(self) -> float | None:
+        m = self.primary_metric
+        return None if m is None else m.last_raw
+
+    @property
+    def member_seen(self) -> dict[str, datetime]:
+        m = self.primary_metric
+        return m.member_seen if m is not None else {}
 
 
 @dataclass(slots=True)
@@ -123,7 +181,8 @@ class AeolusEngine:
         self._runtime: dict[str, SpaceRuntime] = {}
         self._space_available: dict[str, bool] = {}
         self._act_runtime: dict[str, ActuatorRuntime] = {}
-        self._sensor_to_spaces: dict[str, list[str]] = {}
+        # sensor_id → [(space_id, metric_index)] it feeds (FR-P).
+        self._sensor_to_metric: dict[str, list[tuple[str, int]]] = {}
         self._actuator_by_entity: dict[str, str] = {}
         self._unsubs: list[Callable[[], None]] = []
 
@@ -131,19 +190,29 @@ class AeolusEngine:
     @callback
     def async_start(self) -> None:
         for space_id, space in self.spaces.items():
-            self._runtime[space_id] = SpaceRuntime(
-                ema=TimeAwareEMA(DEFAULT_HALFLIFE_SEC, max_alpha=DEFAULT_MAX_ALPHA),
-                slope=SlopeTracker(smoothing_halflife_sec=DEFAULT_HALFLIFE_SEC),
-            )
-            for sensor_id in space.co2_sensors:
-                self._sensor_to_spaces.setdefault(sensor_id, []).append(space_id)
+            mruns: list[MetricRuntime] = []
+            primary = 0
+            for midx, metric in enumerate(space.metrics):
+                mruns.append(
+                    MetricRuntime(
+                        kind=metric.kind,
+                        ema=TimeAwareEMA(DEFAULT_HALFLIFE_SEC, max_alpha=DEFAULT_MAX_ALPHA),
+                        slope=SlopeTracker(smoothing_halflife_sec=DEFAULT_HALFLIFE_SEC),
+                        floor=METRIC_FLOOR.get(metric.kind, 0.0),
+                    )
+                )
+                if metric.kind is MetricKind.CO2:
+                    primary = midx
+                for sensor_id in metric.sensors:
+                    self._sensor_to_metric.setdefault(sensor_id, []).append((space_id, midx))
+            self._runtime[space_id] = SpaceRuntime(metrics=mruns, primary=primary)
 
         for act_id, act in self.actuators.items():
             self._act_runtime[act_id] = ActuatorRuntime()
             for entity_id in (act.entities or [act.entity_id]):
                 self._actuator_by_entity[entity_id] = act_id  # multi-entity (FR-P8)
 
-        if source_ids := list(self._sensor_to_spaces):
+        if source_ids := list(self._sensor_to_metric):
             self._unsubs.append(
                 async_track_state_change_event(self.hass, source_ids, self._on_source_changed)
             )
@@ -192,32 +261,49 @@ class AeolusEngine:
         self._ingest(new_state.entity_id, new_state.state, new_state.last_updated)
         # Availability fires on EVERY source change (incl. → unavailable), not
         # just numeric ones, so entities reflect source dropouts (entity-unavailable).
-        for space_id in self._sensor_to_spaces.get(new_state.entity_id, ()):
+        for space_id in {sid for sid, _ in self._sensor_to_metric.get(new_state.entity_id, ())}:
             self._refresh_availability(space_id)
 
     @callback
     def _ingest(self, sensor_id: str, raw: str, when: datetime) -> None:
         if raw in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return
-        try:
-            ppm = float(raw)
-        except (TypeError, ValueError):
-            return
-        if not 300.0 <= ppm <= 40000.0:
-            return
-        for space_id in self._sensor_to_spaces.get(sensor_id, ()):
-            self._recompute_space(space_id, sensor_id, ppm, when)
-        self._evaluate(dt_util.utcnow())
+        for space_id, midx in self._sensor_to_metric.get(sensor_id, ()):
+            self._recompute_metric(space_id, midx, sensor_id, when)
+        if sensor_id in self._sensor_to_metric:
+            self._evaluate(dt_util.utcnow())
 
     @callback
-    def _recompute_space(self, space_id: str, sensor_id: str, ppm: float, when: datetime) -> None:
-        rt = self._runtime[space_id]
-        rt.member_seen[sensor_id] = when
-        # TODO(v0.1): aggregate per Space.aggregation; single-sensor is correct now.
-        rt.last_raw_ppm = ppm
-        if rt.ema.add(ppm, when) is not None:
-            rt.slope.update(rt.ema.raw, when)  # type: ignore[arg-type]
+    def _recompute_metric(self, space_id: str, midx: int, sensor_id: str, when: datetime) -> None:
+        srt = self._runtime[space_id]
+        if midx >= len(srt.metrics):
+            return
+        mrt = srt.metrics[midx]
+        mrt.member_seen[sensor_id] = when
+        metric = self.spaces[space_id].metrics[midx]
+        values = self._read_metric_values(metric)
+        if not values:
+            return
+        mrt.last_raw = _aggregate(values, metric.aggregation)
+        if mrt.ema.add(mrt.last_raw, when) is not None:
+            mrt.slope.update(mrt.ema.raw, when)  # type: ignore[arg-type]
         async_dispatcher_send(self.hass, signal_space_update(self.entry_id, space_id))
+
+    def _read_metric_values(self, metric: Metric) -> list[float]:
+        """Current usable values of a metric's member sensors (range-guarded by kind)."""
+        lo, hi = (300.0, 40000.0) if metric.kind is MetricKind.CO2 else (0.0, 100000.0)
+        out: list[float] = []
+        for sensor_id in metric.sensors:
+            state = self.hass.states.get(sensor_id)
+            if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                continue
+            try:
+                value = float(state.state)
+            except (TypeError, ValueError):
+                continue
+            if lo <= value <= hi:
+                out.append(value)
+        return out
 
     # --- actuator command + override detection ---------------------------
     @callback
@@ -354,20 +440,12 @@ class AeolusEngine:
 
     # --- availability (entity-unavailable / log-when-unavailable) --------
     def space_available(self, space_id: str) -> bool:
-        """True if at least one of the space's CO2 sources is currently usable."""
+        """True if at least one of the space's primary-metric sensors is usable."""
+        srt = self._runtime.get(space_id)
         space = self.spaces.get(space_id)
-        if space is None:
+        if srt is None or space is None or not space.metrics:
             return False
-        for sensor_id in space.co2_sensors:
-            state = self.hass.states.get(sensor_id)
-            if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-                continue
-            try:
-                float(state.state)
-            except (TypeError, ValueError):
-                continue
-            return True
-        return False
+        return bool(self._read_metric_values(space.metrics[srt.primary]))
 
     @callback
     def _refresh_availability(self, space_id: str) -> None:
@@ -395,16 +473,16 @@ class AeolusEngine:
         return self._act_runtime.get(act_id)
 
     def space_effective_ach(self, space_id: str) -> float | None:
-        rt = self._runtime.get(space_id)
-        if rt is None or rt.ema_ppm is None or rt.slope_ppm_per_min is None:
+        srt = self._runtime.get(space_id)
+        m = srt.primary_metric if srt is not None else None
+        if m is None or m.value is None or m.slope_per_min is None:
             return None
-        return effective_ach(rt.slope_ppm_per_min * 60.0, rt.ema_ppm, self.c_out_ppm)
+        return effective_ach(m.slope_per_min * 60.0, m.value, m.floor)
 
     def space_time_to_target_min(self, space_id: str) -> float | None:
-        rt = self._runtime.get(space_id)
+        srt = self._runtime.get(space_id)
         space = self.spaces.get(space_id)
-        if rt is None or space is None or rt.ema_ppm is None or rt.slope_ppm_per_min is None:
+        m = srt.primary_metric if srt is not None else None
+        if m is None or space is None or m.value is None or m.slope_per_min is None:
             return None
-        return time_to_target_min(
-            rt.ema_ppm, space.target_ppm, rt.slope_ppm_per_min * 60.0, self.c_out_ppm
-        )
+        return time_to_target_min(m.value, space.target_ppm, m.slope_per_min * 60.0, m.floor)

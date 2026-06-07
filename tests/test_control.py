@@ -19,11 +19,8 @@ from custom_components.aeolus.const import (
     CONF_CO2_SENSORS,
     CONF_MECHANISM,
     DOMAIN,
-    Gain,
-    InfluenceType,
     Mechanism,
 )
-from custom_components.aeolus.models import Influence
 
 ACTUATOR = "input_boolean.fan"
 
@@ -65,13 +62,12 @@ async def _setup(hass: HomeAssistant, co2: str) -> MockConfigEntry:
 
 
 def _wire(entry: MockConfigEntry) -> None:
-    """v0.1 served-spaces UI isn't exercised here; wire the influence directly."""
+    """Drive the actuator from the space's (synthesized CO₂) metric tier — the v3
+    equivalent of the old served-spaces influence (set directly, post-parse)."""
     engine = entry.runtime_data.engine
     space_id = next(iter(engine.spaces))
     act_id = next(iter(engine.actuators))
-    engine.actuators[act_id].influences = [
-        Influence(space_id=space_id, gain=Gain.MEDIUM, influence_type=InfluenceType.DIRECT)
-    ]
+    engine.spaces[space_id].metrics[0].tiers[0].setpoints[act_id] = 100
 
 
 async def test_high_co2_turns_actuator_on(hass: HomeAssistant) -> None:
