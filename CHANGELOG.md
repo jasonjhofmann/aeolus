@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Spec v3.0 (draft): multi-pollutant graduated ventilation (§8) (2026-06-06)
+- Major scope expansion captured in `REQUIREMENTS.md §8` (not yet built): drive Spaces by
+  **PM1/PM2.5/PM10/AQI** (not just CO₂) with a **graduated multi-tier response** (engage/release
+  thresholds → per-actuator setpoints), **pollutant-aware actuators** (new `filter` mechanism —
+  recirculating air purifiers become first-class **PM** actuators, still rejected for CO₂; FR-C8
+  revised), **per-tier variable fan %** drive, **multi-entity actuator groups**, and PM-aware safety
+  (prefer filtration; gate exhaust on outdoor PM). Canonical Kitchen-PM acceptance scenario
+  (30/50/80 µg/m³ ladder → hood + purifier group + remote exhausts). Open design decisions + a
+  3-phase build plan (FR-P*, FR-T*). Design under review.
+
 ### Added — override confirmation window for cloud actuators (FR-L7b) (2026-06-06)
 - Per-actuator **"Manual-override confirmation delay (min)"**. A state divergence
   (actuator reads ≠ what Aeolus commanded) must now *persist* this long before it's

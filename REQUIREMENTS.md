@@ -1,9 +1,9 @@
 # Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
-**Requirements Specification — v2.8**
+**Requirements Specification — v3.0 (draft — multi-pollutant scope expansion under review)**
 
 | | |
 |---|---|
-| **Status** | v0.1 + early v1.1 (induced edges, re-arm) **built, tested (69 tests, `mypy --strict`), deployed** to the author's HA. Silver + Platinum rules complete; Bronze 17/18 (only `brands` art pending). |
+| **Status** | v1.1 **built, tested (76 tests, `mypy --strict`), deployed & live** on the author's HA (CO₂ control across 3 spaces, fan on-speed, override grace, reload-on-update). **§8 v3 expansion (multi-pollutant, graduated ventilation) is in requirements** — design under review, not yet built. |
 | **Build target** | HA Integration Quality Scale — **Silver** |
 | **Architected for** | **Platinum** |
 | **Domain** | `aeolus` |
@@ -182,3 +182,57 @@ Temperature/HVAC control (pairs with Versatile Thermostat) · airflow/pressure *
 
 ## Appendix B — Provenance
 The EMA/slope approach is modeled on Versatile Thermostat's `custom_components/versatile_thermostat/ema.py` (time-aware exponential moving average; `alpha` derived from a half-life and the actual inter-sample interval, capped by `max_alpha`; handles irregular sensor cadence) and its `temperature_slope` reporting — adapted here to CO₂ with the gap-normalized ACH extension.
+
+---
+
+## 8. v3 Scope expansion — Multi-pollutant, graduated ventilation & filtration
+
+**Status:** requirements (2026-06-06). Expands Aeolus from single-pollutant (CO₂), essentially on/off control to **multi-pollutant, multi-tier (graduated) ventilation + filtration**. The CO₂ control already shipped becomes the 2-tier special case of a general staircase controller.
+
+### 8.1 Pollutants / metrics (FR-P)
+- **FR-P1** A Space may be driven by one or more **metrics**, each `(kind, sensor(s), aggregation)` where kind ∈ `co2 | pm1 | pm2_5 | pm10 | aqi | generic` (any numeric sensor). Aggregation reuses mean/median/min/**max**; **max = "if ANY listed sensor exceeds"** (the canonical example uses max of two PM sensors).
+- **FR-P2** Each metric carries its own response ladder (§8.2) and its own removal physics (§8.3). The existing CO₂ `target/high` is the degenerate 2-tier ladder.
+- **FR-P3** Floors/units per kind: PM in µg/m³ (floor = the *outdoor* PM level, not a constant); AQI unitless; CO₂ ppm (floor ≈ 420). Gap-normalized effective-ACH is a CO₂/decay concept only; for PM, report raw level + slope/trend.
+
+### 8.2 Graduated tiered response (FR-T)
+- **FR-T1** A metric's response is an ordered **ladder of tiers**, each `{ engage_at, release_at (< engage_at, hysteresis), setpoints: {actuator → level} }`. A level is a **fan percentage**, a **switch on/off**, or a cover position.
+- **FR-T2** The controller drives every actuator to the setpoint of the **highest tier whose `engage_at` the aggregated metric exceeds**; below tier-1's release → all referenced actuators off.
+- **FR-T3 Ramp-down hysteresis:** a tier disengages only when the metric drops below its `release_at`; control then falls to the next-lower tier. Prevents flapping at boundaries (default `release_at` ≈ engage_at − 15%).
+- **FR-T4** Min on/off + settle (FR-L5) and the override window (FR-L7/L7b) apply per actuator across tier transitions (no thrash on rapid PM swings).
+- **FR-T5** Event-driven (sensor updates) + periodic re-evaluation, so the ladder tracks the pollutant **up and down** automatically.
+
+### 8.3 Pollutant-aware actuators (revises FR-C8)
+- **FR-P4** Each actuator declares the **mechanism(s)** it provides → which pollutants it reduces:
+  - **filter** (recirculating HEPA / air purifier — NEW mechanism): removes **PM** (+ VOC/odor); **nothing for CO₂** (no air exchange).
+  - **exhaust / range hood:** removes **PM and CO₂** (extraction + dilution); depressurizes (CAZ / infiltration caveats, FR-G).
+  - **balanced (ERV) / supply:** removes **CO₂**; for **PM** it *imports* outdoor PM unless filtered (net = f(outdoor PM, `filter_efficiency`)).
+  - **window:** dilutes both; fully gated on outdoor AQ.
+- **FR-P5 (revises FR-C8):** the purifier guard is now **pollutant-aware** — a recirculating purifier is **rejected for a CO₂ metric** but **first-class for a PM metric**. An actuator is only offered/used for metrics its mechanism can actually reduce.
+- **FR-P6 PM preference + safety:** for PM, prefer **filtration** (purifiers — no outdoor-air import) over **exhaust** (depressurizes → pulls unfiltered outdoor PM through the leaky envelope). Exhaust for PM is **gated on outdoor PM** (never exhaust into worse outdoor air). The MCAS/allergy household makes this a **health priority**, not just efficiency (see §0.4 / household IAQ profile). CAZ net-exhaust + radon caps (FR-G) still bound total exhaust.
+
+### 8.4 Actuators: variable drive + groups
+- **FR-P7 Variable drive (promotes FR-L4 to required):** a fan actuator is driven to a **percentage** per tier (quantized to the fan's `percentage_step`); switches on/off; covers to a position. Reuses the v1.1 `on_speed_pct` plumbing, generalized to per-tier setpoints.
+- **FR-P8 Multi-entity actuators / groups:** one actuator may target **several entities of the same domain** (e.g. a group of air purifiers) driven to the tier setpoint together — or point at an HA fan-group/group helper.
+
+### 8.5 Canonical acceptance scenario — Kitchen PM
+Space "Kitchen", metric = **max(`sensor.kitchen_pm1`, `sensor.kitchen_pm2_5`)** (µg/m³). Ladder:
+
+| Tier | Engage > | Release < | Kitchen Range Hood | Air-purifier group | Mud Room exhaust | Lower Powder exhaust |
+|---|---|---|---|---|---|---|
+| 1 | 30 | ~25 | 20% | 33% | — | — |
+| 2 | 50 | ~42 | 40% | 66% | — | — |
+| 3 | 80 | ~68 | 100% | 100% | ON | ON |
+
+Below tier-1 release → all four off. As PM falls past each release threshold, Aeolus steps down automatically. (Release values illustrative; configurable.)
+
+### 8.6 Open design decisions (to resolve before build)
+1. **Tier ladder home:** per-Space metric (recommended) vs a reusable shared "Policy" object.
+2. **Groups:** Aeolus multi-entity actuator (recommended) vs require an HA fan-group helper.
+3. **Tier-config UX:** a real per-tier × per-actuator setpoint editor in the config flow (resurrects the deferred influence-row UI) vs a YAML/import path for complex ladders.
+4. **CO₂ unification:** refactor the shipped CO₂ target/high onto the same staircase engine (recommended — one controller) vs keep CO₂ on its 2-level path and add tiers only for PM.
+5. **Cross-metric arbitration:** when one actuator is wanted by two metrics (e.g. hood for both CO₂ and PM) at different levels, take the **max** setpoint (recommended).
+
+### 8.7 Build phasing (proposed)
+- **v3.0-α:** generalized metric (PM/AQI kinds + max aggregation); pollutant-aware `filter` mechanism + relaxed FR-C8; per-actuator variable % drive.
+- **v3.0-β:** tier-ladder engine (staircase + hysteresis) + multi-entity actuators; the Kitchen scenario end-to-end.
+- **v3.0:** tier config-flow UI; PM-aware safety (filtration preference, exhaust outdoor-PM gating); full tests + acceptance scenario; spec finalized (drop "draft").
