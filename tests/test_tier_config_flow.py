@@ -12,6 +12,7 @@ from custom_components.aeolus.config_flow import CONF_ADD_ANOTHER_TIER, CONF_ADD
 from custom_components.aeolus.const import (
     CONF_ACTUATOR_ENTITY,
     CONF_CO2_SENSORS,
+    CONF_ENABLE_LADDERS,
     CONF_METRIC_KIND,
     CONF_METRIC_SENSORS,
     CONF_METRICS,
@@ -27,6 +28,7 @@ async def test_space_wizard_creates_pm_ladder(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.kpm", "12")
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id=DOMAIN, data={},
+        options={CONF_ENABLE_LADDERS: True},  # FR-C9: wizard is opt-in
         subentries_data=[
             ConfigSubentryData(
                 subentry_type="actuator", title="Hood", unique_id=None,

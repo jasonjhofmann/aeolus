@@ -10,6 +10,20 @@
       "already_configured": "Aeolus is already set up. Add Spaces and Actuators from the Aeolus entry's ⋮ menu."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Aeolus options",
+        "description": "Advanced features. Leave these off for a simple CO₂ setup.",
+        "data": {
+          "enable_ladders": "Enable graduated PM/AQI ladders (advanced)"
+        },
+        "data_description": {
+          "enable_ladders": "Adds a step when you create or edit a Space that lets you build a multi-tier particulate/AQI response (e.g. PM2.5 > 30 → hood 20%; > 80 → everything 100%). Off keeps the Space form to just CO₂. Turning this off later never deletes ladders you've already built — they keep running; you just can't re-author them until you turn it back on."
+        }
+      }
+    }
+  },
   "config_subentries": {
     "space": {
       "title": "Space",

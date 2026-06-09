@@ -15,6 +15,14 @@ DOMAIN: Final = "aeolus"
 SUBENTRY_TYPE_SPACE: Final = "space"
 SUBENTRY_TYPE_ACTUATOR: Final = "actuator"
 
+# --- Manager (parent entry) options (FR-C10) ---
+# Opt-in flag that reveals the graduated PM/AQI tier-ladder wizard in the Space
+# flow. Off by default so the common case (simple CO₂ space) stays uncluttered;
+# the ladder UI is powerful but confusing. Disabling it never deletes already
+# authored ladders — they keep running, they just can't be re-authored until
+# the flag is turned back on.
+CONF_ENABLE_LADDERS: Final = "enable_ladders"
+
 # --- Space subentry config keys (FR-C3) ---
 CONF_CO2_SENSORS: Final = "co2_sensors"
 CONF_AGGREGATION: Final = "aggregation"

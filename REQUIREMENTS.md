@@ -76,6 +76,7 @@ dC/dt = −M(u)·(C − C_out·𝟙) + g/V
 - **FR-C7 `unique-config-entry`** + guard against a sensor double-counted across overlapping spaces.
 - **FR-C8 (§0.3 guard)** When an actuator suggests recirculating filtration (air_purifier device class / known purifier integrations), **block with an explanatory error / repair issue**.
 - **FR-C9** Altitude/pressure note: NDIR ppm readings are pressure-sensitive (installation may be at elevation); expose optional per-sensor offset/scale; document ABC-calibration assumptions (self-zero to ~400 ppm on periodic fresh-air exposure).
+- **FR-C10 (advanced-feature gating)** A manager **options flow** carries opt-in toggles for power-user features that would otherwise clutter the common path. First flag: **`enable_ladders`** (default **off**) — only when on does the Space flow expose the graduated PM/AQI tier-ladder wizard (`add_graduated` → metric → tier steps, FR-P/FR-T). Off keeps Space configuration to the simple CO₂ case. Toggling the flag is **non-destructive**: ladders already authored on a Space keep running and are carried forward on reconfigure; they simply can't be re-authored until the flag is on again. The flag changes only config-flow rendering, so flipping it does **not** reload the entry.
 
 ### 3.2 Measurement & smoothing (EMA — Versatile Thermostat's `ema.py` scheme)
 - **FR-M1** Aggregate member sensors per space on any member update; compute **per-member freshness** (do NOT trust the aggregate timestamp — a mean keeps reporting fresh while a member is dead).

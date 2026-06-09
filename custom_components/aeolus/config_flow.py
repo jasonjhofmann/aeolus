@@ -17,6 +17,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     ConfigSubentry,
     ConfigSubentryFlow,
+    OptionsFlow,
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_NAME
@@ -27,6 +28,7 @@ from .const import (
     CONF_ACTUATOR_ENTITY,
     CONF_AGGREGATION,
     CONF_CO2_SENSORS,
+    CONF_ENABLE_LADDERS,
     CONF_FILTER_EFFICIENCY,
     CONF_HIGH_PPM,
     CONF_MECHANISM,
@@ -91,46 +93,82 @@ class AeolusConfigFlow(ConfigFlow, domain=DOMAIN):
             SUBENTRY_TYPE_ACTUATOR: ActuatorSubentryFlow,
         }
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> AeolusOptionsFlow:
+        return AeolusOptionsFlow()
 
-def _space_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+
+class AeolusOptionsFlow(OptionsFlow):
+    """Manager-level options — advanced-feature toggles (FR-C10).
+
+    No reload is triggered: the only option (graduated-ladder visibility) affects
+    how the Space form renders next time, nothing in the running engine.
+    """
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_ENABLE_LADDERS,
+                        default=self.config_entry.options.get(
+                            CONF_ENABLE_LADDERS, False
+                        ),
+                    ): selector.BooleanSelector(),
+                }
+            ),
+        )
+
+
+def _space_schema(
+    defaults: dict[str, Any] | None = None, *, show_graduated: bool = True
+) -> vol.Schema:
     d = defaults or {}
-    return vol.Schema(
-        {
-            vol.Required(CONF_NAME, default=d.get(CONF_NAME, "")): str,
-            vol.Required(CONF_CO2_SENSORS, default=d.get(CONF_CO2_SENSORS, [])): _CO2_SENSOR_SELECTOR,
-            vol.Optional(
-                CONF_AGGREGATION, default=d.get(CONF_AGGREGATION, Aggregation.MEAN.value)
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[a.value for a in Aggregation],
-                    translation_key="aggregation",
-                )
-            ),
-            vol.Optional(CONF_TARGET_PPM, default=d.get(CONF_TARGET_PPM, DEFAULT_TARGET_PPM)): vol.All(
-                vol.Coerce(int), vol.Range(min=420, max=2000)
-            ),
-            vol.Optional(CONF_HIGH_PPM, default=d.get(CONF_HIGH_PPM, DEFAULT_HIGH_PPM)): vol.All(
-                vol.Coerce(int), vol.Range(min=420, max=5000)
-            ),
-            vol.Optional(CONF_VOLUME_FT3, default=d.get(CONF_VOLUME_FT3)): vol.Any(
-                None, vol.Coerce(float)
-            ),
-            # Outdoor-AQ veto (FR-G3): the PM sensor for this space's outdoor air
-            # + the indoor-contribution threshold above which outdoor-air
-            # strategies are blocked. Per-actuator intake sensor (below) overrides.
-            vol.Optional(
-                CONF_OUTDOOR_AQ_ENTITY, default=d.get(CONF_OUTDOOR_AQ_ENTITY)
-            ): vol.Any(None, selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor")
-            )),
-            vol.Optional(
-                CONF_OUTDOOR_AQ_THRESHOLD, default=d.get(CONF_OUTDOOR_AQ_THRESHOLD)
-            ): vol.Any(None, vol.Coerce(float)),
-            # v3: branch into the metric/tier wizard to add a graduated PM/AQI
-            # response (FR-P/FR-T). Off → just the simple CO₂ space above.
-            vol.Optional(CONF_ADD_GRADUATED, default=False): selector.BooleanSelector(),
-        }
-    )
+    fields: dict[Any, Any] = {
+        vol.Required(CONF_NAME, default=d.get(CONF_NAME, "")): str,
+        vol.Required(CONF_CO2_SENSORS, default=d.get(CONF_CO2_SENSORS, [])): _CO2_SENSOR_SELECTOR,
+        vol.Optional(
+            CONF_AGGREGATION, default=d.get(CONF_AGGREGATION, Aggregation.MEAN.value)
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[a.value for a in Aggregation],
+                translation_key="aggregation",
+            )
+        ),
+        vol.Optional(CONF_TARGET_PPM, default=d.get(CONF_TARGET_PPM, DEFAULT_TARGET_PPM)): vol.All(
+            vol.Coerce(int), vol.Range(min=420, max=2000)
+        ),
+        vol.Optional(CONF_HIGH_PPM, default=d.get(CONF_HIGH_PPM, DEFAULT_HIGH_PPM)): vol.All(
+            vol.Coerce(int), vol.Range(min=420, max=5000)
+        ),
+        vol.Optional(CONF_VOLUME_FT3, default=d.get(CONF_VOLUME_FT3)): vol.Any(
+            None, vol.Coerce(float)
+        ),
+        # Outdoor-AQ veto (FR-G3): the PM sensor for this space's outdoor air
+        # + the indoor-contribution threshold above which outdoor-air
+        # strategies are blocked. Per-actuator intake sensor (below) overrides.
+        vol.Optional(
+            CONF_OUTDOOR_AQ_ENTITY, default=d.get(CONF_OUTDOOR_AQ_ENTITY)
+        ): vol.Any(None, selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        )),
+        vol.Optional(
+            CONF_OUTDOOR_AQ_THRESHOLD, default=d.get(CONF_OUTDOOR_AQ_THRESHOLD)
+        ): vol.Any(None, vol.Coerce(float)),
+    }
+    # v3: branch into the metric/tier wizard to add a graduated PM/AQI response
+    # (FR-P/FR-T). Gated behind the manager's "enable ladders" option (FR-C10) so
+    # the common simple-CO₂ case isn't cluttered by it. When hidden, the toggle
+    # simply isn't offered and the flow stays on the simple path.
+    if show_graduated:
+        fields[vol.Optional(CONF_ADD_GRADUATED, default=False)] = selector.BooleanSelector()
+    return vol.Schema(fields)
 
 
 def _metric_schema() -> vol.Schema:
@@ -202,6 +240,10 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
             if sub.subentry_type == SUBENTRY_TYPE_ACTUATOR
         ]
 
+    def _ladders_enabled(self) -> bool:
+        """Whether the manager opted into the graduated tier wizard (FR-C10)."""
+        return bool(self._get_entry().options.get(CONF_ENABLE_LADDERS, False))
+
     def _begin(self, user_input: dict[str, Any]) -> bool:
         """Stash the basics; return whether to enter the graduated wizard."""
         add = bool(user_input.pop(CONF_ADD_GRADUATED, False))
@@ -227,7 +269,10 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
             enter_wizard = self._begin(user_input)
             self._metrics = []
             return await self.async_step_metric() if enter_wizard else self._finish()
-        return self.async_show_form(step_id="user", data_schema=_space_schema())
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_space_schema(show_graduated=self._ladders_enabled()),
+        )
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -240,7 +285,10 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
             self._metrics = [] if enter_wizard else list(self._subentry.data.get(CONF_METRICS, []))
             return await self.async_step_metric() if enter_wizard else self._finish()
         return self.async_show_form(
-            step_id="reconfigure", data_schema=_space_schema(dict(self._subentry.data))
+            step_id="reconfigure",
+            data_schema=_space_schema(
+                dict(self._subentry.data), show_graduated=self._ladders_enabled()
+            ),
         )
 
     async def async_step_metric(

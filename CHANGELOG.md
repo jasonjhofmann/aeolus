@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — graduated ladders are now opt-in (FR-C10) (2026-06-08)
+- **Manager options flow** with an **`enable_ladders`** toggle (default **off**). The graduated
+  PM/AQI tier-ladder wizard (the `add_graduated` step → metric → tiers) only appears on the Space
+  form when this is turned on, so the common simple-CO₂ setup is no longer cluttered by it.
+- **Non-destructive:** turning the flag off (or never turning it on) never deletes ladders already
+  authored on a Space — they keep running and are preserved across reconfigure; they just can't be
+  re-authored until the flag is on again. Flipping the flag does not reload the entry.
+- **Tests:** `test_options_flow` (toggle hidden by default; options flow reveals it; disabling
+  preserves existing metrics on reconfigure).
+
 ### Added — v3 multi-pollutant graduated ventilation: BUILT (§8) (2026-06-06)
 Implements the §8 expansion (committed; migration-safe; **not yet deployed**):
 - **Generalized metrics** — a Space can be driven by `pm1/pm2_5/pm10/aqi/generic` as well as
