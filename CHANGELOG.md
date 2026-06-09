@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Spec v3.1 (draft): humidity & moisture management (§9, PLANNED) (2026-06-08)
+- Major scope expansion captured in `REQUIREMENTS.md §9` (**design stage, NOT built**): humidity
+  becomes a **first-class IAQ objective** alongside CO₂ and PM. **Primary, must-ship job: run a
+  bathroom's exhaust fan when it gets very humid (shower steam)** — the humidity twin of the live
+  CO₂→exhaust loop, reusing the same bath-fan actuator + re-arm (FR-L5b); the MVP is "humidity metric
+  + high threshold + exhaust on/off." The rest of §9 is correctness scaffolding around that. Unlike
+  §8's metrics humidity is **two-sided** (both high RH → mold/dust-mite/MCAS and low RH →
+  eczema-cracking/irritation are harmful), its removal physics run on **absolute humidity / dewpoint**
+  (not RH — ventilation moves vapor *mass*), and its floor is the **outdoor** absolute humidity, which
+  is **weather-driven and changes sign** (desert dry season vs monsoon — the sign-flip that needs the
+  `dehumidify` path).
+- New **`humidity`** metric kind (FR-H1, requires a co-located temperature source) deriving
+  absolute humidity, dewpoint, and `delta_w = W_indoor − W_out` (FR-H2); two-sided target **band**
+  `[rh_low, rh_high]` ~30–55 % (FR-H3).
+- New **`dehumidify`** actuator mechanism (FR-H4) — condensation, **no air exchange**, not gated on
+  outdoor AH/AQ: the humidity analog of the recirculating `filter`, and the only path when outdoor
+  air can't help (monsoon). **ERV latent-recovery attenuation** (FR-H5) — new per-actuator
+  `latent_recovery_efficiency`, the moisture analog of PM `filter_efficiency` (Broan ERV110T enthalpy
+  core ~0.5–0.6). `filter` (purifier) is capability-gated out for humidity, as for CO₂.
+- **Over-dry veto (FR-H6)** — the key cross-metric coupling: below `rh_low`, drying ventilation is
+  vetoed/penalized for **every** metric *including CO₂* (the already-shipped desert CO₂ ventilation
+  over-dries the house). Plus a condensation/mold guard (dewpoint vs cold-surface temp) and a moisture
+  term added to FR-L2 arbitration. Sign-gated outdoor-air mechanisms throughout (never assume outside
+  is drier).
+- §0.4 household profile, FR-P1 metric enum, and §6 out-of-scope updated; canonical scenarios
+  (desert winter over-dry, shower spike + monsoon flip, cold-window condensation) and a 3-phase
+  build plan (v4-α observe-only → β high-side → cross-metric+UX). Design under review.
+
 ### Added — graduated ladders are now opt-in (FR-C10) (2026-06-08)
 - **Manager options flow** with an **`enable_ladders`** toggle (default **off**). The graduated
   PM/AQI tier-ladder wizard (the `add_graduated` step → metric → tiers) only appears on the Space

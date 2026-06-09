@@ -29,7 +29,7 @@ python3 -m venv ~/venvs/aeolus
 
 **Quality scale:** Silver 10/10 ✅, Platinum 3/3 ✅ (`mypy --strict` clean), Bronze 17/18 — the only open rule is **`brands`** (needs icon artwork + a `home-assistant/brands` PR; assets ship in-package at `custom_components/aeolus/brand/` and render locally via HA's Brands Proxy). **Next:** the `home-assistant/brands` PR, then v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
-- **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v2.5).
+- **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v3.1; §8 multi-pollutant built, §9 humidity planned).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.
 - **[CHANGELOG.md](CHANGELOG.md)** — spec history.
 - **`custom_components/aeolus/`** — the integration; **`tests/`** — pure-math unit tests.

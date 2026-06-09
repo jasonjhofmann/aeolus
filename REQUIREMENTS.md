@@ -1,14 +1,14 @@
 # Aeolus — Adaptive CO₂ & Ventilation Manager for Home Assistant
-**Requirements Specification — v3.0**
+**Requirements Specification — v3.1**
 
 | | |
 |---|---|
-| **Status** | v1.1 **deployed & live** on the author's HA (CO₂ control across 3 spaces). **v3 (§8 — multi-pollutant, graduated ventilation) is BUILT & tested (75 tests, `mypy --strict` clean): generalized metrics, the staircase tier engine, multi-entity actuators, PM-aware safety, and the config-flow tier editor — committed & migration-safe, NOT yet deployed.** |
+| **Status** | v1.1 **deployed & live** on the author's HA (CO₂ control across 3 spaces). **v3 (§8 — multi-pollutant, graduated ventilation) is BUILT & tested (75 tests, `mypy --strict` clean): generalized metrics, the staircase tier engine, multi-entity actuators, PM-aware safety, and the config-flow tier editor — committed & migration-safe, NOT yet deployed.** **v4 (§9 — humidity & moisture management) is SPECIFIED at design stage — PLANNED, not built. Primary job: run bathroom exhaust fans when a bath gets very humid (shower steam), reusing the live CO₂→exhaust + re-arm path. Surrounding scaffolding: absolute-humidity physics, a `dehumidify` mechanism + monsoon sign-gate, ERV latent-recovery attenuation, and an over-dry cross-metric veto.** |
 | **Build target** | HA Integration Quality Scale — **Silver** |
 | **Architected for** | **Platinum** |
 | **Domain** | `aeolus` |
 | **iot_class** | `calculated` (local push) |
-| **Last updated** | 2026-06-06 |
+| **Last updated** | 2026-06-08 |
 
 > **The name.** **Aeolus** is the Greek keeper of the winds — the figure who holds many separate winds and *releases each on demand*. That is precisely this integration: a controller that orchestrates multiple, cross-coupled air streams (ERV, exhausts, fans, windows) across rooms that share air, releasing the right one at the right time to manage CO₂. (Verify the slug is free on `home-assistant/brands` and PyPI before first release.)
 
@@ -23,6 +23,7 @@
   - **Depressurizing (exhaust-dominant) strategies are health-penalized, not just energy-penalized:** with leaky doors, any net depressurization pulls **unfiltered** outdoor allergens straight through the envelope. So **prefer the balanced ERV over exhaust** — but for the *pressure* reason (it doesn't force infiltration), **NOT** because it filters (it barely does — see below). Down-weight exhaust/induced strategies (FR-L2 cost) even though there is *no* combustion-backdraft risk (see §7.5).
   - **The ERV is itself a PM-import path (corrected v2.4–2.5).** The installed unit is a **Broan ERV110T** (discontinued). It DOES have filters — **2× washable 30-PPI foam pre-filters** (part `BRNS99010264`, one per air stream) — but foam is a **coarse / core-protection** medium (~MERV 1–4): it catches lint/large dust/insects and *some* large pollen (10–100 µm), but is **negligible for fine PM2.5/smoke**. So for the fine-PM veto its `filter_efficiency` ≈ 0 and the ERV is gated at the **same strict outdoor-PM threshold as unfiltered infiltration** (marginal large-pollen credit only). To earn a relaxed threshold: (a) add an **external inline MERV-13+ filter box on the fresh-air supply** (mind static pressure — ERV blowers are low-static; HEPA likely needs a booster); or (b) rely on the room HEPA purifiers to clean up the imported PM (next bullet). *Maintenance coupling: a clogged foam filter chokes ERV airflow → rinse periodically; Aeolus should not assume rated CFM if the filter is dirty.*
   - **Cooperate with the air purifiers, don't fight them:** purifiers remove PM (not CO₂); Aeolus removes CO₂ (not PM). Model the ERV's net PM impact as *outdoor PM (at its intake sensor) minus the room purifiers' cleanup headroom (CADR)* — a moderate-PM day is acceptable only if the purifiers have capacity to absorb the imported load.
+  - **Humidity (drives §9) — primary job = bathroom exhaust on shower steam.** The everyday case is concrete: a bathroom gets very humid during/after a shower → run its exhaust fan until it clears (the humidity twin of the live CO₂→exhaust loop). Around that, humidity is **two-sided and health-critical** here: *High* RH (>~60%) grows **mold and dust mites** — both direct MCAS/allergen triggers — so it is co-primary with PM/CO₂, not a comfort nicety; *Low* RH (<~30%) cracks the eczema occupant's skin and irritates mucosa, so over-drying is itself a **health** failure. The home is in a **desert (Las Vegas)**: outdoor air is dry most of the year, so bathroom exhaust reliably dehumidifies **and** whole-house ventilation is a strong over-drying hazard — the already-shipped CO₂ ventilation, run here, *dries the house*, so humidity also **retro-constrains existing ventilation** (the over-dry veto, FR-H6). The monsoon (Jul–Sep) flips the sign: outdoor air becomes humid and exhaust then *imports* moisture, so a non-ventilating `dehumidify` path (FR-H4) is required for those days.
 
 ---
 
@@ -165,7 +166,7 @@ Exercises direct + diffusive + induced + escalation + safety vetoes; the headlin
 ---
 
 ## 6. Out of scope
-Temperature/HVAC control (pairs with Versatile Thermostat) · airflow/pressure *measurement* (inferred only) · code-compliance certification · CO (carbon-monoxide) life-safety detection · sorbent/biological CO₂ capture (negligible at room scale).
+Temperature/HVAC control (pairs with Versatile Thermostat) · airflow/pressure *measurement* (inferred only) · code-compliance certification · CO (carbon-monoxide) life-safety detection · sorbent/biological CO₂ capture (negligible at room scale) · **active humidification** (adding moisture) — Aeolus *extracts/dilutes* moisture and *vetoes* over-drying but does not run a humidifier; HA's `humidifier` domain + `generic_hygrostat` already cover that and Aeolus complements rather than duplicates them (§9.6; one open decision is whether to *command* an existing humidifier as a low-RH actuator).
 
 ## 7. Resolved decisions (v2.1 — 2026-06-05)
 
@@ -191,7 +192,7 @@ The EMA/slope approach is modeled on Versatile Thermostat's `custom_components/v
 **Status:** BUILT & tested (2026-06-06) — in the repo, migration-safe, **not yet deployed**. Expands Aeolus from single-pollutant (CO₂), essentially on/off control to **multi-pollutant, multi-tier (graduated) ventilation + filtration**. The CO₂ control already shipped is now the 2-tier special case of the general staircase controller.
 
 ### 8.1 Pollutants / metrics (FR-P)
-- **FR-P1** A Space may be driven by one or more **metrics**, each `(kind, sensor(s), aggregation)` where kind ∈ `co2 | pm1 | pm2_5 | pm10 | aqi | generic` (any numeric sensor). Aggregation reuses mean/median/min/**max**; **max = "if ANY listed sensor exceeds"** (the canonical example uses max of two PM sensors).
+- **FR-P1** A Space may be driven by one or more **metrics**, each `(kind, sensor(s), aggregation)` where kind ∈ `co2 | pm1 | pm2_5 | pm10 | aqi | generic` (any numeric sensor) — plus **`humidity`** (§9, planned; the only **two-sided** kind, with its own physics). Aggregation reuses mean/median/min/**max**; **max = "if ANY listed sensor exceeds"** (the canonical example uses max of two PM sensors).
 - **FR-P2** Each metric carries its own response ladder (§8.2) and its own removal physics (§8.3). The existing CO₂ `target/high` is the degenerate 2-tier ladder.
 - **FR-P3** Floors/units per kind: PM in µg/m³ (floor = the *outdoor* PM level, not a constant); AQI unitless; CO₂ ppm (floor ≈ 420). Gap-normalized effective-ACH is a CO₂/decay concept only; for PM, report raw level + slope/trend.
 
@@ -238,3 +239,79 @@ Below tier-1 release → all four off. As PM falls past each release threshold, 
 - ✅ **v3.0-β:** per-metric staircase engine (engage/release hysteresis) + multi-entity actuators; the Kitchen scenario end-to-end (`test_tier_ladder`).
 - ✅ **v3.0:** config-flow metric→tier wizard (`test_tier_config_flow`); PM-aware safety = capability gate (filter ≠ CO₂, FR-P5) + outdoor-PM exhaust veto (FR-G3); 75 tests, `mypy --strict` clean; spec finalized.
 - **Deferred:** induced/pressure edges (FR-X3) not yet wired into the staircase (helper retained + unit-tested); a tier-editor that round-trips *edits* of an existing ladder field-by-field (today: re-author replaces); optional per-PM-metric sensor entities.
+
+---
+
+## 9. v4 Scope expansion — Humidity & moisture management (PLANNED)
+
+**Status:** SPECIFIED at design stage (2026-06-08) — **NOT built**.
+
+> **Primary objective (the must-ship job).** **When a bathroom gets very humid — i.e. someone showers — run that bathroom's exhaust fan until the steam clears.** This is the everyday case and the reason §9 exists. It is the direct humidity twin of the CO₂→exhaust loop already live on the Primary Bedroom fan: a high-side threshold on a Space's humidity metric drives the **same bath-fan actuator**, held through the long dry-down by the **re-arm** plumbing (FR-L5b) that already solved the Savant hardware-auto-off problem. Everything else in §9 — absolute-humidity physics, the `dehumidify` path, the monsoon sign-flip, the over-dry veto — is **correctness scaffolding and later refinement around that one job**, and must not delay or complicate it. A first deployable slice is essentially "humidity metric + high threshold + exhaust on/off + re-arm," shippable in the same shape as today's CO₂ control.
+
+The deeper model below makes that simple loop *correct* in the cases where naïve "RH high → exhaust" would be wrong (humid days, over-drying, RH-vs-temperature confusion). For the reference home humidity is also a **health** feature, not comfort (§0.4): high RH amplifies mold/dust-mite allergens (MCAS), low RH cracks eczema, and — second-order — the desert climate means the CO₂ ventilation already shipped *over-dries the house*, so §9 also retro-constrains §3.5/§8 control.
+
+### 9.0 Where the simple loop needs guardrails (why humidity isn't *only* a §8 metric)
+The bath-exhaust job is simple; three physics facts keep it honest, and only the first two touch the primary case:
+1. **Ventilation moves *absolute* humidity, not RH.** RH is temperature-dependent; what air exchange transports is **water-vapor mass**. Triggering purely on RH can misfire (a zone can cross an RH threshold from a temperature change with no moisture change). Aeolus derives `(RH, T) → absolute humidity / dewpoint` indoor **and** outdoor and reasons on vapor mass. *For the everyday steamy-bathroom case this is mostly belt-and-suspenders — a post-shower bath is unambiguously humid on any metric — but it prevents false trips and is required to get the next point right.*
+2. **The floor is the *outdoor* absolute humidity, which swings sign.** Exhausting a bathroom dehumidifies **only** when outdoor absolute humidity `W_out` < indoor `W`. In the **desert this is true nearly always**, so the simple loop just works — but the **monsoon (Jul–Sep) flips it**, and on those days raw exhaust would pull *more* humid air in. The sign gate (R-PHYS-H1) catches that and hands off to a non-ventilating **`dehumidify`** path (FR-H4). This is parallel to the CO₂-out floor and the PM-import veto.
+3. **Two-sided objective (secondary).** Beyond bathrooms, both **high** RH (mold/dust-mites/MCAS) and **low** RH (eczema cracking, irritation, static) are harmful, so whole-house humidity has a **high mitigation ladder** *and* a **low constraint** (the over-dry veto, FR-H6). Ventilation can only push a zone *toward* outdoor moisture, so the low side is a **veto/penalty**, never an actuator demand (you can't ventilate moisture *in*). This matters for the desert over-drying problem but is **not** part of the bath-exhaust MVP.
+
+### 9.1 Physics — moisture mass balance (extends §1)
+Same single-zone form as §1.1 with **water vapor** as the transported species:
+```
+V·dW/dt = G_w(t) + Q·W_out − Q·W,   W ≡ absolute humidity (vapor mass / volume)
+⇒ dW/dt = G_w/V − λ·(W − W_out),     λ ≡ Q/V (the same air-change rate)
+```
+- **`W`, `W_out`** — indoor / outdoor absolute humidity, derived from `(RH, T)` via Magnus/Tetens (dewpoint → saturation vapor pressure → g/m³). `W_out` is the asymptotic floor and, unlike CO₂'s ~constant `C_out`, is **time-varying** from the outdoor RH+T sensor.
+- **`G_w`** — moisture generation: showers/baths (the dominant transient), cooking, occupant respiration+perspiration (~tens of g/h per person), unvented appliances, plants. The disturbance.
+- **`λ`** — the **same** air-change rate actuators already modify for CO₂; one ventilation action moves CO₂, PM, *and* moisture simultaneously (the basis for cross-metric coupling, §9.4).
+- **R-PHYS-H1 (sign gate).** The dehumidifying benefit of ventilation is `∝ (W − W_out)` and is **negative when outdoor is more humid** (ventilation then humidifies). Aeolus must gate ventilation-for-humidity on `sign(W − W_out)` and **never assume outside is drier** — the same class of guardrail as the outdoor-AQ veto (Appendix A-b).
+- **R-PHYS-H2 (RH for UX, AH for control).** Thresholds are authored and displayed in **RH%** (what users and health guidance speak), but engage/release comparisons and the sign gate operate on **absolute humidity / dewpoint**. Surface both.
+
+### 9.2 Humidity metric (FR-H1–FR-H3 — extends FR-P)
+- **FR-H1** New metric kind **`humidity`** (RH %). It **requires a co-located temperature source** (per-sensor `T`, or a Space temperature sensor) so the engine can derive absolute humidity/dewpoint; reject configuration of a humidity metric without one (`test-before-configure`, FR-C6). Member aggregation reuses mean/median/min/**max** (max = "if any sensor reads high").
+- **FR-H2 Derived surfaces.** Expose per Space: `absolute_humidity` (g/m³), `dewpoint`, the outdoor counterparts (`outdoor_absolute_humidity`, `outdoor_dewpoint`), and the control variable `delta_w = W_indoor − W_out` (sign = whether ventilation can help). Plus a humidity `status` (dry / ok / humid / mitigating / import-blocked).
+- **FR-H3 Two-sided band.** A humidity metric carries a target **band** `[rh_low, rh_high]` (defaults **~30 %–55 %** for this MCAS/eczema household; configurable) plus optional escalation thresholds above `rh_high`. The **high** side drives mitigation ladders (§9.4); the **low** side is a **constraint/veto** on drying ventilation across *all* metrics (FR-H6), **not** an actuator demand.
+
+### 9.3 Actuators & moisture mechanisms (extends FR-P4 / `MECHANISM_REDUCES`)
+Each actuator's effect on humidity is declared by its mechanism:
+- **FR-H4 `dehumidify` (NEW mechanism).** A standalone dehumidifier, or an AC/heat-pump operating in a dehumidify/dry mode: removes water by **condensation with no air exchange** → **no outdoor import, NOT gated on outdoor AH/AQ**, works regardless of the weather sign. It is the **humidity analog of the recirculating `filter`** mechanism for PM (and, like `filter`, does **nothing for CO₂**). First-class high-RH actuator and the **only** option when outdoor air can't help (humid climate / monsoon). Carries a compressor **energy cost** for arbitration (FR-L2), like exhaust enthalpy.
+- **`exhaust` / range hood / bath fan.** Extracts humid indoor air; net dehumidification is **conditional on `W_out < W`** (the FR-H... sign gate) and still **depressurizes** (FR-G allergen/CAZ caveats). The **bath exhaust is the canonical shower-moisture actuator** and couples with the existing re-arm plumbing (FR-L5b) for the long post-shower runtime.
+- **FR-H5 `balanced` ERV / `supply` — latent-recovery attenuation.** An **ERV recovers latent heat → partially recovers moisture**, so its humidity influence is **attenuated** by a new per-actuator **`latent_recovery_efficiency`** (0 = HRV / sensible-only, full moisture exchange … ~0.5–0.6 = the installed Broan **ERV110T** enthalpy core … →1 = no moisture exchange). Net moisture move = `(1 − latent_recovery_efficiency) × (W_out − W_indoor)`. This is the **direct moisture analog of PM `filter_efficiency`** (FR-C4): it *both* weakens the ERV's dehumidifying power on a dry day *and* limits how much moisture it imports on a humid one — physically correct and the reason an ERV is gentler on humidity than a bare exhaust+infiltration pair.
+- **`window`.** Dilutes toward outdoor AH; **gated on outdoor AH (over-humidify) and outdoor AQ** (FR-G3) together.
+- **`filter` (recirculating purifier).** **Nothing for humidity** — capability-gated out, exactly as it is for CO₂ (FR-P5). The `MECHANISM_REDUCES` table gains a `humidity` column: `dehumidify ✓`, `exhaust ✓ (sign-gated)`, `balanced/supply ✓ (latent-attenuated, sign-gated)`, `window ✓ (gated)`, `filter ✗`.
+- **FR-H… capability + sign gate.** An outdoor-air mechanism is only **offered** for high-RH mitigation when `W_out < W` (R-PHYS-H1); when outside is more humid, only `dehumidify` actuators are eligible for the humidity metric, and ventilation wanted by *other* metrics inherits a moisture-import cost (§9.4).
+
+### 9.4 Control — bidirectional & cross-metric (extends §3.5 / §8.2)
+- **FR-H… High ladder (the primary objective).** Reuse the §8 staircase on the humidity metric: as indoor RH (and AH) exceed `engage_at`, drive the **bathroom exhaust** — the headline shower-steam case — with ramp-down hysteresis per FR-T3 (default `release_at ≈ engage_at − 15 %`) and the re-arm (FR-L5b) holding it through dry-down. The **simplest valid ladder is a single high tier: RH > threshold → exhaust on** (the MVP, §9.9). Richer ladders may add `dehumidify` first and sign-gated `exhaust`/ERV behind it, but a bare bath-exhaust threshold is a complete, shippable degenerate case.
+- **FR-H6 Over-dry veto (the key cross-metric coupling — health, §0.4).** When indoor RH ≤ `rh_low`, **veto or strongly down-weight drying ventilation for *every* metric — including CO₂ and PM-by-ventilation.** In a desert this is the constraint that actually governs winter operation: below the RH floor, Aeolus must prefer **non-drying** CO₂/PM strategies (transfer fans between zones, `filter` for PM, or simply accepting a higher CO₂ setpoint) over outdoor-air dilution, and must **surface the trade-off** rather than silently over-dry. Symmetric in spirit to the outdoor-AQ veto (FR-G3) and the radon veto (FR-G2): *never trade one health hazard for another* (Appendix A-b).
+- **FR-H… Condensation / mold guard.** If indoor **dewpoint ≥ (coldest tracked surface temperature − margin)** — cold window glass or an exterior wall in winter — bias toward **dehumidification even when bulk RH is mid-band**, because local condensation seeds mold. Surface temperature is an **optional** sensor; absent one, use **outdoor T as a winter proxy** for the worst cold surface. Emit a repair/attention signal when sustained.
+- **FR-H… Cross-metric arbitration (extends FR-L2).** Every ventilation action now carries a **moisture term** (benefit or cost) in the arbitration cost alongside energy/enthalpy, depressurization, and outdoor-AQ risk. When CO₂ wants ventilation but it would breach `rh_low` (over-dry) **or** import moisture on a humid day, arbitration weighs that explicitly. The §8 **max-setpoint** rule (open-decision 5) still applies when two metrics want the *same* actuator in the *same* direction; the **new case** is when they want it in *opposite* directions (CO₂ says ventilate, humidity says don't) — resolved by the veto/penalty, with the loser's unmet demand surfaced as `attention`.
+
+### 9.5 Safety & household priority (extends §0.4 / §3.6)
+- **High RH (>~60 % sustained)** = mold + dust-mite amplification = **direct MCAS/allergen trigger** → co-primary with PM/CO₂ for this home, not comfort.
+- **Low RH (<~30 %)** = eczema cracking (the MCAS occupant) + mucosal/respiratory irritation + static → the **over-dry veto (FR-H6) is a health guardrail**, not an efficiency nicety.
+- **Moisture-spike events** (shower, bath, cooking) are the most common high-RH transients → **fast exhaust response**, with the bath-fan re-arm (FR-L5b) covering the long dry-down.
+- **Bounded by the same exhaust guardrails:** dehumidifying *by exhaust* still depressurizes → allergen infiltration (§0.4) + CAZ/radon caps (FR-G1/G2) still apply; this is another reason `dehumidify` (no air exchange) and the latent-attenuated ERV are preferred over raw exhaust here.
+
+### 9.6 Out of scope (humidity)
+- **Active humidification** (*adding* moisture). Aeolus is a ventilation/extraction manager: it can *veto* over-drying but will not run a humidifier. HA's `humidifier` domain + `generic_hygrostat` already own that; Aeolus **complements**, not duplicates (see §6). *(Open: optionally **command** an existing `humidifier` entity as a managed low-RH actuator — 9.7-2.)*
+- Envelope/vapor-barrier remediation, crawlspace/attic moisture, and any structural moisture source control.
+
+### 9.7 Open design decisions (resolve before build)
+1. **Primary control variable:** RH vs **absolute humidity** vs **dewpoint**. *Recommend:* control on **absolute humidity/dewpoint** (correct physics + the sign gate), author/display thresholds in **RH%** (R-PHYS-H2).
+2. **Low-RH actuator:** **pure veto** (recommend for v1 — keeps the "ventilation only" line clean) vs optionally **command an HA `humidifier`** as a managed actuator (richer, but crosses the scope boundary in §9.6).
+3. **Condensation-guard surface temp:** dedicated surface/window sensor vs **outdoor-T proxy** vs skip the guard initially.
+4. **ERV latent recovery:** a per-actuator **constant** `latent_recovery_efficiency` (recommend) vs a temperature-dependent latent-effectiveness curve (enthalpy cores vary with conditions).
+5. **Controller reuse:** ride the **§8 staircase with a two-sided wrapper** (recommend — one engine, humidity high-ladder + a separate low-veto) vs a dedicated bidirectional humidity controller.
+
+### 9.8 Canonical acceptance scenarios (reference home)
+**(a) Shower moisture spike — THE headline (the primary objective).** Primary Bath RH spikes to 80 % after a shower; outdoor is dry (`W_out < W`, the desert norm). Expected: the high-RH threshold engages the **bath exhaust**, held through the long dry-down by the **re-arm** (FR-L5b), and steps off as RH falls back through `release`. This is the everyday job and the regression test §9 must pass first. **Monsoon variant:** the same spike on a humid day (`W_out > W`) — the exhaust is **sign-gated off** for dehumidification (it would import moisture) and a **`dehumidify`** actuator (FR-H4) is engaged instead. *(Until the `dehumidify`/sign-gate work lands, the MVP simply runs the exhaust on high RH — acceptable in the desert, where `W_out < W` nearly always; the monsoon refinement is a known, scheduled follow-up, not a silent gap.)*
+**(b) Desert winter over-dry — the cross-metric guardrail.** Indoor CO₂ rises in a closed bedroom; outdoor air is dry (`W_out ≪ W`) so ventilation *would* cut CO₂ fast — but indoor RH is already 28 % (< `rh_low` 30 %). Expected: the **over-dry veto (FR-H6)** blocks/penalizes the ERV-for-CO₂ action, Aeolus prefers a non-drying path (zone transfer / accept a higher CO₂ band) and raises `attention` explaining the CO₂-vs-dryness trade-off — it does **not** silently dry the house to hit the CO₂ target.
+**(c) Cold-window condensation.** Winter night, bulk RH a comfortable 45 % but indoor dewpoint meets the cold glass → condensation guard biases toward **dehumidify** despite the mid-band RH, averting window mold.
+
+### 9.9 Build phasing (planned)
+- **v4-MVP (the primary job — ship first):** `humidity` metric (FR-H1, `(RH,T)` derivation so triggering is moisture-correct) + a **high-RH threshold driving the bathroom `exhaust` on/off**, held by the existing **re-arm** (FR-L5b). This is the steamy-bathroom loop (9.8-a) and reuses the live CO₂→exhaust control path almost verbatim — the smallest deployable, useful slice. In the desert it is correct as-is (`W_out < W` nearly always); the sign gate is the *next* step, not a blocker.
+- **v4-α surfaces:** outdoor `W_out` + `delta_w` + dewpoint as sensors/attributes (observe-only) to validate the physics against live sensors and prep the sign gate.
+- **v4-β (sign gate + dehumidify):** wire R-PHYS-H1 so exhaust is sign-gated and the new **`dehumidify`** mechanism (FR-H4) covers humid/monsoon days; ERV **`latent_recovery_efficiency`** attenuation (FR-H5); monsoon-variant test (9.8-a).
+- **v4 (cross-metric + UX):** **over-dry veto (FR-H6)** wired into the CO₂/PM ventilation arbitration (9.8-b); condensation/mold guard (9.8-c); config-flow humidity-metric wizard (band + per-sensor T + ERV latent recovery); translations, diagnostics, repair issues (over-dry-veto-active, humidity-import-blocked, condensation-risk). `mypy --strict` + tests as ever.
