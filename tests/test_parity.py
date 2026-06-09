@@ -80,23 +80,58 @@ def _drive_pm(hass: HomeAssistant, entry: MockConfigEntry, sid: str, pm_idx: int
     async_dispatcher_send(hass, signal_space_update(eng.entry_id, sid))
 
 
-async def test_per_metric_sensors_exist_co2_unchanged(hass: HomeAssistant) -> None:
-    """FR-E5/E8: PM value + slope sensors appear; CO₂ keeps its unique_ids; ACH is
-    CO₂-only; the CO₂ value sensor is the unsuffixed primary."""
+async def test_per_metric_sensors_symmetric_naming(hass: HomeAssistant) -> None:
+    """FR-E5/E8: every metric gets value + slope sensors; ACH is CO₂-only; and NO
+    metric is the unnamed default — CO₂ is named "<Space> CO₂", symmetric with PM."""
     _, sid, _, _ = await _setup_co2_and_pm(hass)
-    assert _eid(hass, "sensor", f"{sid}_co2") is not None  # preserved
+    assert _eid(hass, "sensor", f"{sid}_co2") is not None  # unique_id preserved
     assert _eid(hass, "sensor", f"{sid}_co2_slope") is not None
     assert _eid(hass, "sensor", f"{sid}_air_change_rate") is not None
     assert _eid(hass, "sensor", f"{sid}_pm2_5") is not None  # NEW — was invisible
     assert _eid(hass, "sensor", f"{sid}_pm2_5_slope") is not None
     assert _eid(hass, "sensor", f"{sid}_pm2_5_air_change_rate") is None  # ACH is CO₂-only
-    # Naming (FR-E8): CO₂ primary is unsuffixed (device name), PM is suffixed.
     co2 = hass.states.get(_eid(hass, "sensor", f"{sid}_co2"))
     pm = hass.states.get(_eid(hass, "sensor", f"{sid}_pm2_5"))
-    assert co2.attributes["friendly_name"] == "Zone"
-    assert pm.attributes["friendly_name"] == "Zone PM2.5"
+    # "Managed <metric>" — not the bare "Zone", and never collides with a raw
+    # `<room>_<metric>` source sensor (entity_id → sensor.zone_managed_co2).
+    assert co2.attributes["friendly_name"] == "Zone Managed CO₂"
+    assert pm.attributes["friendly_name"] == "Zone Managed PM2.5"
+    assert co2.entity_id == "sensor.zone_managed_co2"
     assert co2.attributes["device_class"] == "carbon_dioxide"
     assert pm.attributes["device_class"] == "pm25"
+
+
+async def test_migrate_legacy_entity_ids(hass: HomeAssistant) -> None:
+    """Cleanup migration: a legacy double-prefixed PM sensor and a bare CO₂ sensor
+    (`sensor.zone`) are renamed to the canonical `sensor.zone_pm2_5` / `_co2`."""
+    hass.states.async_set("sensor.z_co2", "700")
+    hass.states.async_set("sensor.z_pm", "5")
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id=DOMAIN, data={},
+        subentries_data=[
+            ConfigSubentryData(
+                subentry_type="space", title="Zone", unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000,
+                    CONF_METRICS: [{CONF_METRIC_KIND: "pm2_5", CONF_METRIC_SENSORS: ["sensor.z_pm"],
+                                    CONF_TIERS: [{CONF_TIER_ENGAGE: 30}]}],
+                },
+            ),
+        ],
+    )
+    entry.add_to_hass(hass)
+    sid = next(s.subentry_id for s in entry.subentries.values() if s.subentry_type == "space")
+    reg = er.async_get(hass)
+    # Pre-seed the legacy (broken) entity_ids older builds left behind.
+    reg.async_get_or_create("sensor", DOMAIN, f"{sid}_pm2_5",
+                            suggested_object_id="zone_zone_pm2_5", config_entry=entry)
+    reg.async_get_or_create("sensor", DOMAIN, f"{sid}_co2",
+                            suggested_object_id="zone", config_entry=entry)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_pm2_5") == "sensor.zone_managed_pm2_5"
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_co2") == "sensor.zone_managed_co2"
 
 
 async def test_pm_value_surfaced(hass: HomeAssistant) -> None:

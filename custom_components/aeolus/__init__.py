@@ -13,7 +13,9 @@ from typing import Any
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import slugify
 
 from .const import (
     CONF_ACTUATOR_ENTITIES,
@@ -71,6 +73,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bool:
     """Set up Aeolus from its config entry + subentries."""
     spaces, actuators = _parse_subentries(entry)
+    _migrate_entity_ids(hass, entry, spaces)
     engine = AeolusEngine(hass, entry.entry_id, spaces, actuators)
     entry.runtime_data = AeolusData(engine=engine)
     engine.async_start()
@@ -86,6 +89,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bo
 async def _async_reload_on_update(hass: HomeAssistant, entry: AeolusConfigEntry) -> None:
     """Re-parse subentries by reloading the entry (config/subentry changed)."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+# The Aeolus *measurement* sensors (a metric value, its slope, the CO₂ ACH) are
+# named "Managed <metric>" so their entity_ids carry a `managed_` marker — this
+# distinguishes Aeolus's smoothed/managed output from the user's raw source sensors
+# (whose convention is `<room>_<metric>`, e.g. the Aranet `sensor.primary_bedroom_co2`)
+# and so never collides with them. Status/control entities keep descriptive names.
+_VALUE_KINDS: frozenset[str] = frozenset({"co2", "pm1", "pm2_5", "pm10", "aqi", "generic"})
+_TAIL_OVERRIDES: dict[str, str] = {"reason": "status_reason", "target": "target_co2"}
+
+
+def _canonical_tail(suffix: str) -> str:
+    """The object_id tail a fresh install generates for a given unique_id suffix."""
+    if suffix in _VALUE_KINDS or suffix.endswith("_slope") or suffix == "air_change_rate":
+        return f"managed_{suffix}"
+    return _TAIL_OVERRIDES.get(suffix, suffix)
+
+
+def _migrate_entity_ids(
+    hass: HomeAssistant, entry: AeolusConfigEntry, spaces: dict[str, Space]
+) -> None:
+    """One-time, idempotent cleanup of legacy per-Space entity_ids:
+
+    * strip the **double device-name prefix** some derived sensors acquired on older
+      builds (e.g. `sensor.primary_bedroom_primary_bedroom_pm2_5`), and
+    * give the **measurement sensors a `managed_` marker** (`sensor.<space>` →
+      `sensor.<space>_managed_co2`) so no single metric reads as the space's unnamed
+      default and they don't collide with the raw source sensors (FR-E8).
+
+    Renames to the canonical `<domain>.<space-slug>_<tail>` a fresh install produces;
+    a no-op once ids are canonical. Skips any rename whose target id is already taken
+    (never clobbers another entity).
+    """
+    registry = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(registry, entry.entry_id):
+        space = spaces.get(ent.unique_id[:26])  # subentry_id is a 26-char ULID
+        if space is None:
+            continue  # not a Space entity (e.g. the manager master switch)
+        suffix = ent.unique_id[27:]
+        if not suffix:
+            continue
+        desired = f"{ent.domain}.{slugify(space.name)}_{_canonical_tail(suffix)}"
+        if ent.entity_id == desired or registry.async_get(desired) is not None:
+            continue
+        registry.async_update_entity(ent.entity_id, new_entity_id=desired)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bool:

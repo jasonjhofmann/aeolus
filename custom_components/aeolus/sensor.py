@@ -118,11 +118,12 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
         self._attr_unique_id = f"{space.subentry_id}_co2" if kind is MetricKind.CO2 else (
             f"{space.subentry_id}_{kind.value}"
         )
-        if is_primary:
-            self._attr_name = None  # the device (Space) name is the entity name
-        else:
-            self._attr_translation_key = kind.value
-            self._attr_icon = METRIC_ICON.get(kind)
+        # Named "Managed <metric>" via the per-kind translation key, so (a) no single
+        # metric is the space's unnamed "default" (CO₂ used to be name=None → the bare
+        # "<Space>" sensor), and (b) the entity_id gets a `managed_` marker that never
+        # collides with the user's raw `<room>_<metric>` source sensors (FR-E8).
+        self._attr_translation_key = kind.value
+        self._attr_icon = METRIC_ICON.get(kind)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

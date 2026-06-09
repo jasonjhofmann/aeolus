@@ -97,7 +97,7 @@ async def test_sensor_restores_ema_for_continuity(hass: HomeAssistant) -> None:
         hass,
         (
             (
-                State("sensor.zone", "760"),
+                State("sensor.zone_managed_co2", "760"),
                 {"native_value": 760.0, "native_unit_of_measurement": "ppm"},
             ),
         ),
@@ -118,10 +118,10 @@ async def test_sensor_restores_ema_for_continuity(hass: HomeAssistant) -> None:
     entry.add_to_hass(hass)  # no live sensor.z_co2 state yet
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.zone").state == STATE_UNAVAILABLE
+    assert hass.states.get("sensor.zone_managed_co2").state == STATE_UNAVAILABLE
 
     hass.states.async_set("sensor.z_co2", "900")  # source returns
     await hass.async_block_till_done()
-    state = hass.states.get("sensor.zone")
+    state = hass.states.get("sensor.zone_managed_co2")
     assert state.state != STATE_UNAVAILABLE
     assert 755 <= float(state.state) <= 775  # blended from restored 760, not 900

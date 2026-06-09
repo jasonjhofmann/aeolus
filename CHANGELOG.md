@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — clean up per-Space entity_ids: `managed_*` measurement sensors + migration (2026-06-09)
+- The per-metric **measurement sensors** (value, slope, CO₂ ACH) are now named **"Managed
+  <metric>"** → entity_ids `sensor.<space>_managed_co2`, `_managed_pm2_5`, `_managed_co2_slope`, …
+  Two problems fixed: (1) the CO₂ value sensor was the **bare `sensor.<space>`**, reading as if CO₂
+  were the space's default metric (pre-dates PM/humidity); (2) the `managed_` marker keeps Aeolus's
+  smoothed output from **colliding with the user's raw source sensors** (convention `<room>_<metric>`,
+  e.g. the Aranet `sensor.primary_bedroom_co2`). Status/control entities (mode, mitigation, attention,
+  target, threshold, manage switches, status reason) keep their descriptive ids.
+- **One-time idempotent migration** (`_migrate_entity_ids`, runs on setup): renames legacy ids to the
+  canonical form — also stripping the **double device-name prefix** some derived sensors picked up on
+  older builds (`sensor.primary_bedroom_primary_bedroom_pm2_5` → `…_managed_pm2_5`). Skips any rename
+  whose target id is already taken (never clobbers another entity); a no-op once ids are canonical.
+- Tests: `test_migrate_legacy_entity_ids` + updated naming assertions. 91 tests, `mypy --strict` clean.
+
 ### Added — view ladders without re-authoring: `tiers` attribute + diagnostics (2026-06-09)
 You can now see a metric's full graduated ladder without walking the (replacing) config-flow
 re-author path:
