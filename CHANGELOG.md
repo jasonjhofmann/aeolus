@@ -14,9 +14,10 @@ re-author path:
   States or an attributes card. Includes the CO₂ metric's synthesized 2-tier (high→target) ladder.
 - **`diagnostics` platform (Gold `diagnostics`)** — Download Diagnostics dumps the whole picture:
   spaces (mode/target/status/reason/mitigating/attention) + every metric (value/slope/active-tier/
-  managed/**tiers**) + actuators (mechanism/runtime/influences). Entity-id-bearing keys (room names)
-  are redacted for shareable bug reports; ladder structure and actuator names are kept.
-  `quality_scale.yaml diagnostics: done`. The field-by-field ladder *editor* stays deferred.
+  managed/**tiers**) + actuators (mechanism/runtime/influences), with **real entity_ids — nothing
+  redacted** (Aeolus owns no secrets, NFR-3; entity_ids are needed for inspection and are no more
+  revealing than the actuator names already in the ladders). `quality_scale.yaml diagnostics: done`.
+  The field-by-field ladder *editor* stays deferred.
 - Tests in `tests/test_parity.py` (now 12); 90 tests total, `mypy --strict` clean, 96% coverage.
 
 ### Added — per-metric parity (FR-E5–E9) + explainability (FR-U2): BUILT (§8.8) (2026-06-09)

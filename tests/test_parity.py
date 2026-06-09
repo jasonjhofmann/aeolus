@@ -242,7 +242,7 @@ async def test_ladder_viewable_as_tiers_attribute(hass: HomeAssistant) -> None:
 
 async def test_diagnostics_dump(hass: HomeAssistant) -> None:
     """View ladders without re-authoring (#2): the diagnostics dump carries every
-    ladder + runtime, with entity-id keys redacted but structure/names intact."""
+    ladder + runtime with real entity_ids (nothing redacted — no secrets, NFR-3)."""
     from custom_components.aeolus.diagnostics import async_get_config_entry_diagnostics
 
     entry, sid, hood, pm_idx = await _setup_co2_and_pm(hass)
@@ -254,10 +254,10 @@ async def test_diagnostics_dump(hass: HomeAssistant) -> None:
     space = next(s for s in diag["spaces"] if s["subentry_id"] == sid)
     pm = next(m for m in space["metrics"] if m["kind"] == "pm2_5")
     assert pm["tiers"] == [{"engage_at": 30.0, "release_at": 25.5, "setpoints": {"Hood": 40}}]
-    assert pm["sensors"] == "**REDACTED**"  # entity ids redacted for sharing
+    assert pm["sensors"] == ["sensor.z_pm"]  # real entity_ids, not redacted
     assert space["status"] in ("ok", "monitor", "mitigating", "attention")
     hood_d = next(a for a in diag["actuators"] if a["name"] == "Hood")
-    assert hood_d["mechanism"] == "exhaust" and hood_d["entities"] == "**REDACTED**"
+    assert hood_d["mechanism"] == "exhaust" and hood_d["entities"] == ["fan.hood"]
 
 
 async def test_manage_switch_entity_toggles(hass: HomeAssistant) -> None:

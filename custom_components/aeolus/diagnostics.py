@@ -1,10 +1,11 @@
 """Diagnostics for Aeolus (Gold `diagnostics`).
 
-A redacted dump of the influence graph, EVERY metric's full tier ladder, and the
-live EMA/slope/status/veto state — so the configuration (incl. ladders) and
-runtime can be viewed/shared without re-authoring (the §8.7 deferred editor).
-Entity-id-bearing keys (which carry room names) are redacted so the download is
-safe to attach to a bug report; the ladder STRUCTURE and actuator names are kept.
+A dump of the influence graph, EVERY metric's full tier ladder, and the live
+EMA/slope/status/veto state — so the configuration (incl. ladders) and runtime
+can be viewed/shared without re-authoring (the §8.7 deferred editor). Nothing is
+redacted: Aeolus owns no secrets (no tokens/credentials, NFR-3) and the source
+sensor / actuator entity_ids are needed to make the dump useful for inspection —
+and are no more revealing than the actuator names already shown in the ladders.
 """
 
 from __future__ import annotations
@@ -12,22 +13,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .engine import ActuatorRuntime
 from .models import AeolusConfigEntry
-
-TO_REDACT = {
-    "sensors",
-    "co2_sensors",
-    "entities",
-    "entity_id",
-    "outdoor_aq_entity",
-    "occupancy_entity",
-    "radon_entity",
-}
 
 
 def _dt(value: datetime | None) -> str | None:
@@ -124,10 +114,9 @@ async def async_get_config_entry_diagnostics(
         for aid, act in engine.actuators.items()
     ]
 
-    data: dict[str, Any] = {
+    return {
         "c_out_ppm": engine.c_out_ppm,
         "paused": engine.paused,
         "spaces": spaces,
         "actuators": actuators,
     }
-    return async_redact_data(data, TO_REDACT)
