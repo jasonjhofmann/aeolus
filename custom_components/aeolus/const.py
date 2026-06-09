@@ -166,6 +166,51 @@ METRIC_FLOOR: Final[dict[MetricKind, float]] = {
     MetricKind.GENERIC: 0.0,
 }
 
+# --- Per-metric display metadata (FR-E5/E8/U5) -----------------------------
+# Label, unit, display precision, icon, and a sensible threshold range per kind.
+# device_class enums are applied in the entity modules (const stays HA-import-free).
+METRIC_LABEL: Final[dict[MetricKind, str]] = {
+    MetricKind.CO2: "CO₂",
+    MetricKind.PM1: "PM1",
+    MetricKind.PM2_5: "PM2.5",
+    MetricKind.PM10: "PM10",
+    MetricKind.AQI: "AQI",
+    MetricKind.GENERIC: "Level",
+}
+METRIC_UNIT: Final[dict[MetricKind, str | None]] = {
+    MetricKind.CO2: "ppm",
+    MetricKind.PM1: "µg/m³",
+    MetricKind.PM2_5: "µg/m³",
+    MetricKind.PM10: "µg/m³",
+    MetricKind.AQI: None,
+    MetricKind.GENERIC: None,
+}
+METRIC_PRECISION: Final[dict[MetricKind, int]] = {
+    MetricKind.CO2: 1,
+    MetricKind.PM1: 1,
+    MetricKind.PM2_5: 1,
+    MetricKind.PM10: 1,
+    MetricKind.AQI: 0,
+    MetricKind.GENERIC: 1,
+}
+METRIC_ICON: Final[dict[MetricKind, str]] = {
+    MetricKind.CO2: "mdi:molecule-co2",
+    MetricKind.PM1: "mdi:blur",
+    MetricKind.PM2_5: "mdi:blur",
+    MetricKind.PM10: "mdi:blur",
+    MetricKind.AQI: "mdi:air-filter",
+    MetricKind.GENERIC: "mdi:gauge",
+}
+# Upper bound for the per-metric engage-threshold `number` (FR-E7). CO₂ uses the
+# dedicated Target number, so it is absent here.
+METRIC_THRESHOLD_MAX: Final[dict[MetricKind, float]] = {
+    MetricKind.PM1: 500.0,
+    MetricKind.PM2_5: 500.0,
+    MetricKind.PM10: 600.0,
+    MetricKind.AQI: 500.0,
+    MetricKind.GENERIC: 1000.0,
+}
+
 _PM_KINDS: Final = frozenset(
     {MetricKind.PM1, MetricKind.PM2_5, MetricKind.PM10, MetricKind.AQI, MetricKind.GENERIC}
 )

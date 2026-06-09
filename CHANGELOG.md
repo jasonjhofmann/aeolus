@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — per-metric parity (FR-E5–E9) + explainability (FR-U2): BUILT (§8.8) (2026-06-09)
+Closes the §8.8 gap — the control engine was multi-metric but the entity/control/status
+surface was CO₂-only (observed live on the Primary Bedroom: PM ran but was invisible, and
+`attention` couldn't see a PM exceedance). Now built & tested (88 tests, `mypy --strict` clean):
+- **Per-metric sensors (FR-E5/E8)** — every configured metric gets a value sensor + a slope
+  sensor with the correct device-class/unit (`pm25`/`pm10`/`aqi`/…). `effective_ach` stays
+  **CO₂-only** (§8.3 FR-P3). The CO₂ metric keeps its original unique_ids (`<sid>_co2`,
+  `_co2_slope`, `_air_change_rate`) and the unsuffixed device name, so a live CO₂ space is
+  unchanged; other metrics are suffixed by kind. **Fixes a latent bug**: a PM-only Space's
+  primary sensor was previously emitted with a CO₂ device-class/ppm unit.
+- **Metric-attributed status (FR-E6)** — `mitigation_active` / `attention` now reflect **any**
+  driven metric and expose `driving_metrics` + `active_actuators`; attention is raised by a PM
+  (or any) exceedance, not CO₂ alone. Centralized in the engine (`space_status/attention/
+  mitigating/driving_metrics`).
+- **Per-metric control (FR-E7)** — each non-CO₂ metric gets an engage-threshold `number`
+  (tier-1 `engage_at`, live, hysteresis-preserving) alongside the CO₂ Target.
+- **Per-metric Manage gate (FR-E9)** — an advanced, `entity-disabled-by-default` "Manage
+  <metric>" switch; off → monitor-only (value/status still shown, **demand removed from the
+  max-setpoint arbitration**, not a forced actuator-off). Only created when a Space drives >1
+  metric. Master Mode select unchanged.
+- **Explainability `reason` (FR-U2)** — a per-Space diagnostic sensor (+ `reason` attribute)
+  stating *why* the current action: driving metric+tier → actuators, or the blocking cause when
+  idle despite demand (outdoor-AQ veto, manual override w/ minutes remaining, runtime cap, stale/
+  unavailable, monitoring-only, no-eligible-actuator). Replaces the cryptic activity-log text.
+- Controller respects the per-metric gate; the tier latch updates for **all** fresh metrics
+  (display correct) while only managed metrics contribute demand. Engine dispatches a per-Space
+  refresh each control tick so status/reason track the controller. New `tests/test_parity.py`
+  (10 tests); full strings/`en.json` for the new entities. Spec §8.8/§8.7/§3.9 marked built.
+
 ### Changed — Spec v3.2: usability pass (§3.9 FR-U + doc cleanup) (2026-06-09)
 - **New §3.9 Usability / UX (FR-U1–U5)** consolidating UX intent that was scattered across FR-C10,
   FR-E6/E8, §9, and the Gold docs/repair rules — and adding the missing **explainability**

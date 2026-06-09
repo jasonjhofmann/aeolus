@@ -48,12 +48,15 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
                 continue
             mrt = srt.metrics[midx]
             if is_stale(mrt.member_seen, now):
-                continue  # FR-G5: never actuate blind
+                mrt.active_tier = -1  # FR-G5: never actuate blind; clear the latch
+                continue
             value = mrt.value
             if value is None:
                 continue
+            # Update the tier latch for ALL fresh metrics so the value/status surface
+            # is correct (FR-E5/E6) — but only a *managed* metric contributes demand.
             tier_idx = _active_tier(metric, mrt, value)
-            if tier_idx is None:
+            if tier_idx is None or not mrt.manage:  # FR-E9 per-metric gate
                 continue
             active = True
             for act_id, setpoint in metric.tiers[tier_idx].setpoints.items():

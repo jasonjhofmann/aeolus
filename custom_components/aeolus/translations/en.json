@@ -197,15 +197,32 @@
   },
   "entity": {
     "sensor": {
+      "co2": { "name": "CO₂" },
+      "pm1": { "name": "PM1" },
+      "pm2_5": { "name": "PM2.5" },
+      "pm10": { "name": "PM10" },
+      "aqi": { "name": "AQI" },
+      "generic": { "name": "Level" },
       "co2_slope": { "name": "CO₂ slope" },
-      "air_change_rate": { "name": "Air change rate" }
+      "pm1_slope": { "name": "PM1 slope" },
+      "pm2_5_slope": { "name": "PM2.5 slope" },
+      "pm10_slope": { "name": "PM10 slope" },
+      "aqi_slope": { "name": "AQI trend" },
+      "generic_slope": { "name": "Level slope" },
+      "air_change_rate": { "name": "Air change rate" },
+      "reason": { "name": "Status reason" }
     },
     "binary_sensor": {
       "mitigation_active": { "name": "Mitigation active" },
       "attention": { "name": "Attention" }
     },
     "number": {
-      "target": { "name": "Target CO₂" }
+      "target": { "name": "Target CO₂" },
+      "pm1_threshold": { "name": "PM1 threshold" },
+      "pm2_5_threshold": { "name": "PM2.5 threshold" },
+      "pm10_threshold": { "name": "PM10 threshold" },
+      "aqi_threshold": { "name": "AQI threshold" },
+      "generic_threshold": { "name": "Level threshold" }
     },
     "select": {
       "mode": {
@@ -218,7 +235,13 @@
       }
     },
     "switch": {
-      "management": { "name": "Management" }
+      "management": { "name": "Management" },
+      "manage_co2": { "name": "Manage CO₂" },
+      "manage_pm1": { "name": "Manage PM1" },
+      "manage_pm2_5": { "name": "Manage PM2.5" },
+      "manage_pm10": { "name": "Manage PM10" },
+      "manage_aqi": { "name": "Manage AQI" },
+      "manage_generic": { "name": "Manage Level" }
     }
   },
   "services": {

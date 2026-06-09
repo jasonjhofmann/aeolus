@@ -48,8 +48,10 @@ from .const import (
     DEFAULT_MIN_ON_SEC,
     DOMAIN,
     METRIC_FLOOR,
+    METRIC_LABEL,
     Aggregation,
     MetricKind,
+    SpaceMode,
 )
 from .ema import SlopeTracker, TimeAwareEMA
 from .estimator import effective_ach, time_to_target_min
@@ -91,6 +93,10 @@ class MetricRuntime:
     floor: float
     last_raw: float | None = None
     active_tier: int = -1  # staircase hysteresis (FR-T3); -1 = no tier engaged
+    # Per-metric management gate (FR-E9): True → contributes actuator demand;
+    # False → monitor-only (value/status still surfaced, no demand). Toggled by
+    # the advanced "Manage <metric>" switch; the space Mode is the master (FR-L6).
+    manage: bool = True
     member_seen: dict[str, datetime] = field(default_factory=dict)
 
     @property
@@ -411,6 +417,10 @@ class AeolusEngine:
     @callback
     def _async_tick(self, now: datetime) -> None:
         self._evaluate(now)
+        # Refresh status/reason/mitigation entities each tick even absent a source
+        # change, so explainability (FR-U2) and mitigation state track the controller.
+        for space_id in self.spaces:
+            async_dispatcher_send(self.hass, signal_space_update(self.entry_id, space_id))
 
     @callback
     def request_evaluation(self) -> None:
@@ -486,3 +496,209 @@ class AeolusEngine:
         if m is None or space is None or m.value is None or m.slope_per_min is None:
             return None
         return time_to_target_min(m.value, space.target_ppm, m.slope_per_min * 60.0, m.floor)
+
+    # --- per-metric read API (FR-E5–E9 parity) ---------------------------
+    def metric_runtime(self, space_id: str, midx: int) -> MetricRuntime | None:
+        srt = self._runtime.get(space_id)
+        if srt is None or not (0 <= midx < len(srt.metrics)):
+            return None
+        return srt.metrics[midx]
+
+    def metric_value(self, space_id: str, midx: int) -> float | None:
+        mrt = self.metric_runtime(space_id, midx)
+        return None if mrt is None else mrt.value
+
+    def metric_slope_per_min(self, space_id: str, midx: int) -> float | None:
+        mrt = self.metric_runtime(space_id, midx)
+        return None if mrt is None else mrt.slope_per_min
+
+    def metric_available(self, space_id: str, midx: int) -> bool:
+        """A metric is available if any of its member sensors is currently usable."""
+        space = self.spaces.get(space_id)
+        if space is None or not (0 <= midx < len(space.metrics)):
+            return False
+        return bool(self._read_metric_values(space.metrics[midx]))
+
+    def metric_manage(self, space_id: str, midx: int) -> bool:
+        mrt = self.metric_runtime(space_id, midx)
+        return True if mrt is None else mrt.manage
+
+    def set_metric_manage(self, space_id: str, midx: int, manage: bool) -> None:
+        """FR-E9 gate: include/exclude a metric's actuator demand, then re-evaluate."""
+        mrt = self.metric_runtime(space_id, midx)
+        if mrt is not None and mrt.manage != manage:
+            mrt.manage = manage
+            self.request_evaluation()
+
+    def metric_threshold(self, space_id: str, midx: int) -> float | None:
+        """The metric's tier-1 engage threshold (FR-E7), or None if no ladder."""
+        space = self.spaces.get(space_id)
+        if space is None or not (0 <= midx < len(space.metrics)):
+            return None
+        tiers = space.metrics[midx].tiers
+        return tiers[0].engage_at if tiers else None
+
+    def set_metric_threshold(self, space_id: str, midx: int, value: float) -> None:
+        """Adjust the tier-1 engage threshold live (FR-E7), keeping its release
+        below it for hysteresis; then re-evaluate."""
+        from .const import DEFAULT_RELEASE_FRACTION
+
+        space = self.spaces.get(space_id)
+        if space is None or not (0 <= midx < len(space.metrics)):
+            return
+        tiers = space.metrics[midx].tiers
+        if not tiers:
+            return
+        tiers[0].engage_at = value
+        if tiers[0].release_at >= value:
+            tiers[0].release_at = value * DEFAULT_RELEASE_FRACTION
+        self.request_evaluation()
+
+    def _space_actuator_ids(self, space_id: str) -> set[str]:
+        """Every actuator referenced by any tier of any of the space's metrics."""
+        ids: set[str] = set()
+        space = self.spaces.get(space_id)
+        if space is not None:
+            for metric in space.metrics:
+                for tier in metric.tiers:
+                    ids.update(tier.setpoints)
+        return ids
+
+    def space_active_actuator_names(self, space_id: str) -> list[str]:
+        """Names of this space's actuators Aeolus currently has commanded on (FR-E2)."""
+        names = [
+            self.actuators[aid].name
+            for aid in self._space_actuator_ids(space_id)
+            if (art := self._act_runtime.get(aid)) is not None and art.commanded_on
+        ]
+        return sorted(names)
+
+    def space_mitigating(self, space_id: str) -> bool:
+        srt = self._runtime.get(space_id)
+        return bool(srt is not None and srt.mitigating)
+
+    def space_driving_metrics(self, space_id: str) -> list[MetricKind]:
+        """Kinds whose ladder is currently engaged AND managed (FR-E6 attribution)."""
+        srt = self._runtime.get(space_id)
+        space = self.spaces.get(space_id)
+        if srt is None or space is None or space.mode is not SpaceMode.MANAGE:
+            return []
+        return [m.kind for m in srt.metrics if m.manage and m.active_tier >= 0]
+
+    def _all_stale(self, srt: SpaceRuntime, now: datetime) -> bool:
+        from .safety import is_stale
+
+        return bool(srt.metrics) and all(is_stale(m.member_seen, now) for m in srt.metrics)
+
+    def space_attention(self, space_id: str, now: datetime | None = None) -> bool:
+        """True if ANY driven metric is stale, maxed-and-still-high, or elevated &
+        not improving — not CO₂ alone (FR-E6 correctness)."""
+        from .safety import is_stale
+
+        now = now or dt_util.utcnow()
+        srt = self._runtime.get(space_id)
+        space = self.spaces.get(space_id)
+        if srt is None or space is None:
+            return False
+        for midx, metric in enumerate(space.metrics):
+            mrt = srt.metrics[midx]
+            if is_stale(mrt.member_seen, now):
+                return True
+            value = mrt.value
+            if value is None or not metric.tiers:
+                continue
+            if value > metric.tiers[-1].engage_at:  # at/over the top tier
+                return True
+            slope = mrt.slope_per_min
+            if value > metric.tiers[0].release_at and slope is not None and slope >= 0:
+                return True
+        return False
+
+    def space_status(self, space_id: str, now: datetime | None = None) -> str:
+        """One-word status across all metrics (FR-E2)."""
+        now = now or dt_util.utcnow()
+        srt = self._runtime.get(space_id)
+        space = self.spaces.get(space_id)
+        if srt is None or space is None or not self.space_available(space_id):
+            return "unavailable"
+        if self._all_stale(srt, now):
+            return "stale"
+        if self.paused:
+            return "paused"
+        if space.mode is SpaceMode.OFF:
+            return "off"
+        if space.mode is SpaceMode.MONITOR:
+            return "monitor"
+        if self.space_mitigating(space_id):
+            return "mitigating"
+        if self.space_attention(space_id, now):
+            return "attention"
+        return "ok"
+
+    def space_reason(self, space_id: str, now: datetime | None = None) -> str:
+        """Plain-language *why* the current action (FR-U2 explainability)."""
+        now = now or dt_util.utcnow()
+        srt = self._runtime.get(space_id)
+        space = self.spaces.get(space_id)
+        if srt is None or space is None:
+            return "Not configured"
+        if not self.space_available(space_id):
+            return "Sensor unavailable — mitigation suspended"
+        if self._all_stale(srt, now):
+            return "Sensor stale — mitigation suspended"
+        if self.paused:
+            return "Aeolus management off (master switch)"
+        if space.mode is SpaceMode.OFF:
+            return "Mode off — not managing"
+        if space.mode is SpaceMode.MONITOR:
+            return "Monitor only — observing, not acting"
+        # MANAGE: name the metrics whose ladder is engaged and managed.
+        driving = [
+            (metric, mrt)
+            for midx, metric in enumerate(space.metrics)
+            if (mrt := srt.metrics[midx]).manage and mrt.active_tier >= 0
+        ]
+        if driving:
+            parts = [f"{METRIC_LABEL[m.kind]} tier {mrt.active_tier + 1}" for m, mrt in driving]
+            acts = self.space_active_actuator_names(space_id)
+            if acts:
+                return f"Mitigating {', '.join(parts)} → {', '.join(acts)}"
+            cause = self._blocking_cause(space_id, now)
+            tail = f" — {cause}" if cause else " — no eligible actuator"
+            return f"{', '.join(parts)} demanded{tail}"
+        # Not driving: surface an elevated-but-not-acting metric (gated or blocked).
+        for midx, metric in enumerate(space.metrics):
+            mrt = srt.metrics[midx]
+            value = mrt.value
+            if value is None or not metric.tiers or value <= metric.tiers[0].engage_at:
+                continue
+            label = METRIC_LABEL[metric.kind]
+            if not mrt.manage:
+                return f"{label} elevated — monitoring only (Manage {label} off)"
+            cause = self._blocking_cause(space_id, now)
+            return f"{label} elevated — {cause}" if cause else f"{label} elevated"
+        return "OK — all metrics within range"
+
+    def _blocking_cause(self, space_id: str, now: datetime) -> str | None:
+        """Why eligible actuators for an elevated metric aren't running (FR-U2)."""
+        from .safety import max_runtime_exceeded, outdoor_air_vetoed
+
+        space = self.spaces.get(space_id)
+        if space is None:
+            return None
+        act_ids = self._space_actuator_ids(space_id)
+        for aid in act_ids:
+            if self.actuator_is_overridden(aid, now):
+                until = self._act_runtime[aid].overridden_until
+                mins = int((until - now).total_seconds() // 60) + 1 if until else 0
+                return f"manual override — yielding {mins} min"
+        for aid in act_ids:
+            act = self.actuators.get(aid)
+            if act is not None and outdoor_air_vetoed(self.hass, act, space):
+                return "outdoor-air quality veto"
+        for aid in act_ids:
+            act = self.actuators.get(aid)
+            art = self._act_runtime.get(aid)
+            if act is not None and art is not None and max_runtime_exceeded(art, act, now):
+                return "runtime cap reached"
+        return None

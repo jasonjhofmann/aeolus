@@ -10,13 +10,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.util import dt as dt_util
 
 from .const import SUBENTRY_TYPE_SPACE
 from .engine import AeolusEngine, signal_space_update
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
-from .safety import is_space_stale
 
 PARALLEL_UPDATES = 0
 
@@ -67,7 +65,7 @@ class _SpaceBinarySensor(AeolusSpaceEntity, BinarySensorEntity):
 
 
 class AeolusMitigationActiveBinarySensor(_SpaceBinarySensor):
-    """True while Aeolus is actively mitigating this space."""
+    """True while Aeolus is actively mitigating this space — for ANY metric (FR-E6)."""
 
     _key = "mitigation_active"
     _attr_translation_key = "mitigation_active"
@@ -75,12 +73,21 @@ class AeolusMitigationActiveBinarySensor(_SpaceBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        rt = self._engine.space_runtime(self._space.subentry_id)
-        return bool(rt and rt.mitigating)
+        return self._engine.space_mitigating(self._space.subentry_id)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        sid = self._space.subentry_id
+        return {
+            "driving_metrics": [k.value for k in self._engine.space_driving_metrics(sid)],
+            "active_actuators": self._engine.space_active_actuator_names(sid),
+            "reason": self._engine.space_reason(sid),
+        }
 
 
 class AeolusAttentionBinarySensor(_SpaceBinarySensor):
-    """True when the space needs attention: over-high, diverging, or stale."""
+    """True when ANY driven metric needs attention: over-high, not-improving, or
+    stale — not CO₂ alone (FR-E6 correctness)."""
 
     _key = "attention"
     _attr_translation_key = "attention"
@@ -89,16 +96,12 @@ class AeolusAttentionBinarySensor(_SpaceBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        rt = self._engine.space_runtime(self._space.subentry_id)
-        if rt is None:
-            return False
-        if is_space_stale(rt, dt_util.utcnow()):
-            return True
-        ema = rt.ema_ppm
-        if ema is None:
-            return False
-        # over the high threshold, or above target but not converging (slope >= 0)
-        if ema > self._space.high_ppm:
-            return True
-        slope = rt.slope_ppm_per_min
-        return ema > self._space.target_ppm and slope is not None and slope >= 0
+        return self._engine.space_attention(self._space.subentry_id)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        sid = self._space.subentry_id
+        return {
+            "status": self._engine.space_status(sid),
+            "reason": self._engine.space_reason(sid),
+        }
