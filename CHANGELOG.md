@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Decided — management control: one master Mode select, not a dropdown per pollutant (FR-E9) (2026-06-09)
+- **Q:** should there be a Configuration/Mode dropdown per pollutant? **A:** no. The per-Space `select`
+  Mode (`manage`/`monitor`/`off`) stays the **single master**; finer control is an **advanced,
+  disabled-by-default `switch` "Manage <metric>"** per metric (the FR-L6 per-metric gate). A
+  manage/monitor/off dropdown *per pollutant* would clutter the common single-CO₂ card and duplicate
+  the master, and per-metric `off`-vs-`monitor` is redundant once a metric is configured — the real
+  need is the binary "does this pollutant drive actuators."
+- **Semantics (FR-L6 extended):** because actuators are **shared across a space's metrics** (bath
+  exhaust = CO₂ + humidity; range hood = CO₂ + PM), gating a metric to monitor-only **removes its
+  demand from the max-setpoint arbitration**, it does **not** force a specific actuator off (another
+  metric may still want it). Space `off`/`monitor` overrides all per-metric gates. Spec-only.
+
 ### Changed — Spec: per-metric entity/control/status parity (§8.8, FR-E5–E8) (2026-06-09)
 - Captured an **observed conformance gap**: the §8 control engine is fully multi-metric
   (`SpaceRuntime` holds a `MetricRuntime` per metric and the staircase drives PM + CO₂ together),
