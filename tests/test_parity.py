@@ -225,6 +225,41 @@ async def test_reason_override_block(hass: HomeAssistant) -> None:
     assert eng.actuator_runtime(hood).commanded_setpoint == 0
 
 
+async def test_ladder_viewable_as_tiers_attribute(hass: HomeAssistant) -> None:
+    """View ladders without re-authoring (#1): the full tier ladder rides as a
+    `tiers` attribute on the metric sensor, with setpoints keyed by actuator name."""
+    entry, sid, hood, pm_idx = await _setup_co2_and_pm(hass)
+    eng = entry.runtime_data.engine
+    eng.spaces[sid].metrics[pm_idx].tiers[0].setpoints[hood] = 40
+    eng.spaces[sid].metrics[pm_idx].tiers[0].release_at = 25
+    _drive_pm(hass, entry, sid, pm_idx, 10)  # refresh the entity
+    await hass.async_block_till_done()
+    tiers = hass.states.get(_eid(hass, "sensor", f"{sid}_pm2_5")).attributes["tiers"]
+    assert tiers == [{"engage_at": 30.0, "release_at": 25.0, "setpoints": {"Hood": 40}}]
+    # CO₂'s synthesized 2-tier ladder is visible on the primary sensor too.
+    assert "tiers" in hass.states.get(_eid(hass, "sensor", f"{sid}_co2")).attributes
+
+
+async def test_diagnostics_dump(hass: HomeAssistant) -> None:
+    """View ladders without re-authoring (#2): the diagnostics dump carries every
+    ladder + runtime, with entity-id keys redacted but structure/names intact."""
+    from custom_components.aeolus.diagnostics import async_get_config_entry_diagnostics
+
+    entry, sid, hood, pm_idx = await _setup_co2_and_pm(hass)
+    eng = entry.runtime_data.engine
+    eng.spaces[sid].metrics[pm_idx].tiers[0].setpoints[hood] = 40
+
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    assert diag["paused"] is False and diag["c_out_ppm"] == 420.0
+    space = next(s for s in diag["spaces"] if s["subentry_id"] == sid)
+    pm = next(m for m in space["metrics"] if m["kind"] == "pm2_5")
+    assert pm["tiers"] == [{"engage_at": 30.0, "release_at": 25.5, "setpoints": {"Hood": 40}}]
+    assert pm["sensors"] == "**REDACTED**"  # entity ids redacted for sharing
+    assert space["status"] in ("ok", "monitor", "mitigating", "attention")
+    hood_d = next(a for a in diag["actuators"] if a["name"] == "Hood")
+    assert hood_d["mechanism"] == "exhaust" and hood_d["entities"] == "**REDACTED**"
+
+
 async def test_manage_switch_entity_toggles(hass: HomeAssistant) -> None:
     """FR-E9: enabling the Manage switch entity and toggling it gates the metric."""
     entry, sid, hood, pm_idx = await _setup_co2_and_pm(hass)

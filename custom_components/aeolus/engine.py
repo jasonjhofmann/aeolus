@@ -554,6 +554,26 @@ class AeolusEngine:
             tiers[0].release_at = value * DEFAULT_RELEASE_FRACTION
         self.request_evaluation()
 
+    def metric_tiers_view(self, space_id: str, midx: int) -> list[dict[str, object]]:
+        """Read-only render of a metric's full ladder — engage/release + per-actuator
+        setpoints keyed by actuator NAME — so it's viewable without re-authoring."""
+        space = self.spaces.get(space_id)
+        if space is None or not (0 <= midx < len(space.metrics)):
+            return []
+        view: list[dict[str, object]] = []
+        for tier in space.metrics[midx].tiers:
+            view.append(
+                {
+                    "engage_at": tier.engage_at,
+                    "release_at": tier.release_at,
+                    "setpoints": {
+                        (self.actuators[aid].name if aid in self.actuators else aid): level
+                        for aid, level in tier.setpoints.items()
+                    },
+                }
+            )
+        return view
+
     def _space_actuator_ids(self, space_id: str) -> set[str]:
         """Every actuator referenced by any tier of any of the space's metrics."""
         ids: set[str] = set()

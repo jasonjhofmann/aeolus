@@ -50,7 +50,7 @@ rules:
 
   # --- Gold (architected toward) ---
   devices: done
-  diagnostics: todo
+  diagnostics: done
   discovery:
     status: exempt
     comment: |

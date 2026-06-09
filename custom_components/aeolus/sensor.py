@@ -142,11 +142,11 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
         return self._engine.metric_value(self._space.subentry_id, self._midx)
 
     @property
-    def extra_state_attributes(self) -> dict[str, float | str | bool | list[str] | None]:
+    def extra_state_attributes(self) -> dict[str, object]:
         sid = self._space.subentry_id
         mrt = self._engine.metric_runtime(sid, self._midx)
         raw = mrt.last_raw if mrt is not None else None
-        attrs: dict[str, float | str | bool | list[str] | None] = {}
+        attrs: dict[str, object] = {}
         if self._kind is MetricKind.CO2:
             # Preserve the v1 CO₂ attribute names exactly.
             attrs.update(
@@ -168,6 +168,9 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
                     "managed": self._engine.metric_manage(sid, self._midx),
                 }
             )
+        # The full ladder, viewable without re-authoring (engage/release + per-actuator
+        # setpoints by name). Empty for a metric with no tiers.
+        attrs["tiers"] = self._engine.metric_tiers_view(sid, self._midx)
         if self._is_primary:
             # The space-level summary rides on the primary metric's sensor (FR-E2/U2).
             attrs["status"] = self._engine.space_status(sid)

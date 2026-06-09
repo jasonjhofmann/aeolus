@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — view ladders without re-authoring: `tiers` attribute + diagnostics (2026-06-09)
+You can now see a metric's full graduated ladder without walking the (replacing) config-flow
+re-author path:
+- **`tiers` attribute** on every metric value sensor — the ordered ladder as
+  `{engage_at, release_at, setpoints: {<actuator name>: level}}`, viewable in Developer Tools →
+  States or an attributes card. Includes the CO₂ metric's synthesized 2-tier (high→target) ladder.
+- **`diagnostics` platform (Gold `diagnostics`)** — Download Diagnostics dumps the whole picture:
+  spaces (mode/target/status/reason/mitigating/attention) + every metric (value/slope/active-tier/
+  managed/**tiers**) + actuators (mechanism/runtime/influences). Entity-id-bearing keys (room names)
+  are redacted for shareable bug reports; ladder structure and actuator names are kept.
+  `quality_scale.yaml diagnostics: done`. The field-by-field ladder *editor* stays deferred.
+- Tests in `tests/test_parity.py` (now 12); 90 tests total, `mypy --strict` clean, 96% coverage.
+
 ### Added — per-metric parity (FR-E5–E9) + explainability (FR-U2): BUILT (§8.8) (2026-06-09)
 Closes the §8.8 gap — the control engine was multi-metric but the entity/control/status
 surface was CO₂-only (observed live on the Primary Bedroom: PM ran but was invisible, and
