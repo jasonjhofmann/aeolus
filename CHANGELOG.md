@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Spec v3.2: usability pass (§3.9 FR-U + doc cleanup) (2026-06-09)
+- **New §3.9 Usability / UX (FR-U1–U5)** consolidating UX intent that was scattered across FR-C10,
+  FR-E6/E8, §9, and the Gold docs/repair rules — and adding the missing **explainability**
+  requirement: **FR-U2** mandates a per-Space plain-language **`reason`** surfacing *why* the current
+  action — driving metric+tier, active actuators, or the **blocking cause when idle despite demand**
+  ("outdoor-AQ veto," "over-dry veto," "unreachable," "override — yielding 22 min," "stale," "below
+  engage") — replacing today's cryptic "Mitigation active cleared (no running detected)." Plus FR-U1
+  progressive disclosure / simple default path, FR-U3 coherent device page + recommended Lovelace
+  example, FR-U4 user-facing alerting for blocking states, FR-U5 legible units/precision/icons.
+- **Document-usability fixes:** numbered four **dangling `FR-H…` IDs → FR-H7–H10** (sign-gate, high
+  ladder, condensation guard, cross-metric arbitration) and the `FR-H...` cross-ref; fixed a broken
+  cross-ref (§0.4 "§7.5" → "§7 #5"); added a **Contents** block for navigation; broadened the title
+  from "CO₂ & Ventilation Manager" → "**Air-Quality** & Ventilation Manager" (multi-pollutant since
+  v3/v4); refreshed Last-updated → 2026-06-09; aligned two "FR-E5–E8" parity refs to **E5–E9**.
+  Spec bumped **v3.1 → v3.2**. Spec-only; no code change.
+
 ### Decided — management control: one master Mode select, not a dropdown per pollutant (FR-E9) (2026-06-09)
 - **Q:** should there be a Configuration/Mode dropdown per pollutant? **A:** no. The per-Space `select`
   Mode (`manage`/`monitor`/`off`) stays the **single master**; finer control is an **advanced,
