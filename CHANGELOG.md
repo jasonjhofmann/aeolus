@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Spec: per-metric entity/control/status parity (§8.8, FR-E5–E8) (2026-06-09)
+- Captured an **observed conformance gap**: the §8 control engine is fully multi-metric
+  (`SpaceRuntime` holds a `MetricRuntime` per metric and the staircase drives PM + CO₂ together),
+  but the **entity/control/status surface proxies only the primary (CO₂) metric** by design. Live on
+  the **Primary Bedroom** (CO₂ **and** PM mitigation configured, PM has run ≥ once): the device shows
+  only Air-change rate / "CO₂ slope" / CO₂ ppm / "Target CO₂"; **no PM sensor or control exists, and
+  `attention` — computed purely from CO₂ thresholds — cannot flag a PM exceedance** (a silently-missed
+  hazard for the MCAS household, not just a label gap).
+- **New requirements FR-E5–E8** (§3.7) + **§8.8** (co-existence narrative + acceptance): per-metric
+  value/slope **sensors** for every configured metric (correct device-class/unit; ACH stays CO₂-only);
+  `mitigation_active`/`attention`/`status` that reflect **and name** *any* driving metric; a
+  **threshold control per non-CO₂ metric**; and symmetric naming (no CO₂-privileged surface). FR-E2/E3
+  generalized from CO₂-only to per-metric; the §8.7 "optional per-PM sensors" deferral reclassified as
+  **required**. **§9 humidity inherits FR-E5–E8** — the bath-exhaust MVP ships with a humidity sensor +
+  humidity-attributed status, not invisible actuation. Spec-only; not yet built.
+
 ### Changed — Spec v3.1 (draft): humidity & moisture management (§9, PLANNED) (2026-06-08)
 - Major scope expansion captured in `REQUIREMENTS.md §9` (**design stage, NOT built**): humidity
   becomes a **first-class IAQ objective** alongside CO₂ and PM. **Primary, must-ship job: run a
