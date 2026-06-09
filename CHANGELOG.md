@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — control-precedence help text on the setup/options flows (2026-06-09)
+- Every flow screen that supports help text now explains the control hierarchy, **strongest first**:
+  the **Management** switch (global on/off) → each Space's **Mode** (Manage/Monitor/Off) → the advanced
+  per-metric **Manage <pollutant>** switches (apply *only* when Mode = Manage; each level overrides the
+  ones below). Added to the manager setup step, the **Options** flow, and the Space **add** + **edit**
+  forms. (HA renders free-form help only in flow dialogs — the runtime entity more-info cards have no
+  description field — so the flows + self-describing entity labels are the supported coverage.)
+
 ### Changed — clean up per-Space entity_ids: `managed_*` measurement sensors + migration (2026-06-09)
 - The per-metric **measurement sensors** (value, slope, CO₂ ACH) are now named **"Managed
   <metric>"** → entity_ids `sensor.<space>_managed_co2`, `_managed_pm2_5`, `_managed_co2_slope`, …

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Aeolus",
-        "description": "This creates the Aeolus manager. After you press Submit, open the new Aeolus entry and use **+ Add** to create **Spaces** (zones you want to manage by CO₂) and **Actuators** (fans, vents, ERV or windows that lower CO₂). Nothing is controlled until you add and configure those."
+        "description": "This creates the Aeolus manager. After you press Submit, open the new Aeolus entry and use **+ Add** to create **Spaces** (zones you want to manage by CO₂) and **Actuators** (fans, vents, ERV or windows that lower CO₂). Nothing is controlled until you add and configure those.\n\nThe **Management** switch on this Aeolus device is the master on/off for everything Aeolus does (see *Control precedence* under the device's Configure → Options)."
       }
     },
     "abort": {
@@ -14,7 +14,7 @@
     "step": {
       "init": {
         "title": "Aeolus options",
-        "description": "Advanced features. Leave these off for a simple CO₂ setup.",
+        "description": "Advanced features. Leave these off for a simple CO₂ setup.\n\n**Control precedence (strongest first):** the **Management** switch on the Aeolus device (global on/off for the whole integration) → each Space's **Mode** select (Manage / Monitor / Off — governs that one room) → the advanced, off-by-default per-metric **Manage <pollutant>** switches (e.g. *Manage CO₂*, *Manage PM2.5*), which apply *only* when that Space's Mode is **Manage**. Each level overrides the ones below it, so Mode = Monitor/Off makes the per-metric toggles inert.",
         "data": {
           "enable_ladders": "Enable graduated PM/AQI ladders (advanced)"
         },
@@ -32,7 +32,7 @@
       "step": {
         "user": {
           "title": "Add a space",
-          "description": "A **Space** is a zone managed by CO₂ (e.g. Primary Bedroom). Choose its CO₂ sensor(s) and the levels Aeolus should hold. Optionally add a graduated PM/AQI response too.",
+          "description": "A **Space** is a zone managed by CO₂ (e.g. Primary Bedroom). Choose its CO₂ sensor(s) and the levels Aeolus should hold. Optionally add a graduated PM/AQI response too.\n\n**How this Space is controlled (strongest first):** the **Management** switch on the Aeolus device (global on/off) → this Space's **Mode** select (Manage / Monitor / Off) → the advanced per-metric **Manage <pollutant>** switches, which apply *only* when Mode = **Manage** (they let you manage one pollutant while only monitoring another). Each level overrides the ones below it.",
           "data": {
             "name": "Name",
             "co2_sensors": "CO₂ sensor(s)",
@@ -58,7 +58,7 @@
         },
         "reconfigure": {
           "title": "Edit space",
-          "description": "Update this zone's sensors and CO₂ levels. Turn on the graduated response to re-author its PM/AQI ladder (this replaces the existing one); leave it off to keep the current ladder.",
+          "description": "Update this zone's sensors and CO₂ levels. Turn on the graduated response to re-author its PM/AQI ladder (this replaces the existing one); leave it off to keep the current ladder.\n\n**How this Space is controlled (strongest first):** the **Management** switch on the Aeolus device (global on/off) → this Space's **Mode** select (Manage / Monitor / Off) → the advanced per-metric **Manage <pollutant>** switches, which apply *only* when Mode = **Manage**. Each level overrides the ones below it.",
           "data": {
             "name": "Name",
             "co2_sensors": "CO₂ sensor(s)",
