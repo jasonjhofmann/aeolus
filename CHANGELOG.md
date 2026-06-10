@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-09
+
+First versioned release (the package shipped as `0.0.1` since the v0.1 MVP; the
+manifest version was never bumped, so HA kept reporting `0.0.1` through the
+multi-pollutant, parity, diagnostics, and entity-id-cleanup work below). `0.4.0`
+reflects the milestones past the MVP: core CO₂ loop → §8 multi-pollutant graduated
+ventilation → per-metric parity + explainability (FR-E5–E9 / FR-U2) → diagnostics,
+ladder view, `managed_*` entity-id cleanup, and control-precedence help text.
+
 ### Added — control-precedence help text on the setup/options flows (2026-06-09)
 - Every flow screen that supports help text now explains the control hierarchy, **strongest first**:
   the **Management** switch (global on/off) → each Space's **Mode** (Manage/Monitor/Off) → the advanced
