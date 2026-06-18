@@ -71,7 +71,7 @@ def outdoor_air_vetoed(hass: HomeAssistant, actuator: Actuator, space: Space) ->
         return False
     try:
         outdoor_pm = float(state.state)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return False
     return outdoor_aq_blocks(outdoor_pm, actuator.filter_efficiency, threshold)
 

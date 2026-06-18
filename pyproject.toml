@@ -1,15 +1,19 @@
 [project]
 name = "aeolus"
-version = "0.5.1"
+version = "0.5.2"
 description = "Adaptive, multi-zone CO2 & ventilation manager for Home Assistant"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-# Home Assistant's minimum runtime is Python 3.14, so that is the supported floor.
-requires-python = ">=3.14"
+# Supported floor = Home Assistant 2025.4 (the hacs.json / manifest minimum), which
+# runs Python 3.13. The code must import on 3.13 — see [tool.ruff] target-version.
+requires-python = ">=3.13"
 
 [tool.ruff]
-# target-version = the OLDEST supported Python (the floor), per the ruff docs.
-target-version = "py314"
+# target-version = the OLDEST supported Python (the 3.13 floor), per the ruff docs.
+# This is load-bearing: at py314 pyupgrade rewrites `except (A, B):` into the bare
+# `except A, B:` (PEP 758), which is a SyntaxError on 3.13 and broke v0.5.1. Keep
+# this pinned to the floor so the parenthesized form is never re-stripped.
+target-version = "py313"
 line-length = 88
 
 [tool.ruff.lint]
@@ -19,6 +23,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
 allowed-confusables = ["×", "–", "−", "α"]
 
 [tool.mypy]
+# Analyzes the code against the INSTALLED Home Assistant core. Current HA (2026.x)
+# is written in 3.14 syntax, so mypy must parse at 3.14 even though the code's
+# SUPPORT floor is 3.13 (ruff target-version above). These two intentionally differ:
+# ruff = the syntax we emit (floor); mypy = the runtime we type-check against (latest).
 python_version = "3.14"
 strict = true
 warn_unused_ignores = true

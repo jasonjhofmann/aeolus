@@ -5,10 +5,11 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/jasonjhofmann/aeolus",
+  "homeassistant": "2025.4.0",
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/jasonjhofmann/aeolus/issues",
   "quality_scale": "platinum",
   "requirements": [],
-  "version": "0.5.1"
+  "version": "0.5.2"
 }

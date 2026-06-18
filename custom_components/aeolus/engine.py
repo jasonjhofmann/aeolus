@@ -456,7 +456,7 @@ class AeolusEngine:
                 continue
             try:
                 value = float(state.state)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 continue
             if lo <= value <= hi:
                 out.append(value)

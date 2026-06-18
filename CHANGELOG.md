@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-06-18
+
+### Fixed
+- **Critical: the integration failed to import on Home Assistant < 2026.x (Python < 3.14).**
+  v0.5.1's `target-version=py314` let ruff/pyupgrade rewrite `except (TypeError, ValueError):`
+  into the bare 3.14-only form `except TypeError, ValueError:` (PEP 758) in `engine.py` and
+  `safety.py` — a hard `SyntaxError` on Python 3.13, which is what Home Assistant 2025.4–2025.12
+  run. Restored the parenthesized form, verified all source parses under Python 3.13.
+
+### Changed
+- **Corrected the supported floor to Home Assistant 2025.4 / Python 3.13** (what `hacs.json` and
+  the README already declared, and the minimum that supports config subentries): `requires-python>=3.13`,
+  ruff `target-version=py313` (pinned to the floor so the bare-except rewrite can never recur),
+  and added the `homeassistant: "2025.4.0"` key to `manifest.json` (previously absent). `mypy`
+  stays at `python_version=3.14` to type-check against the installed HA core; this is intentional —
+  ruff targets the support floor, mypy targets the analysis runtime.
+
 ## [0.5.1] - 2026-06-17
 
 ### Changed
