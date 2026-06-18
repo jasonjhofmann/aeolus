@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-17
+
 ### Added — Platinum quality scale (2026-06-17)
 - Aeolus now satisfies the full Integration Quality Scale through **Platinum** (manifest
   `quality_scale: platinum`): the Platinum rules were already met (`strict-typing` via `mypy --strict`;
@@ -23,8 +25,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - **dynamic-devices** / **stale-devices**: adding or removing a Space/Actuator subentry now takes
     effect live, without reloading the entry; an actuator added later is wired into the CO₂ tiers of
     the Spaces it serves. `async_remove_config_entry_device` allows deleting orphaned devices.
-- **Fixed**: all entities are now `should_poll = False` (push/command-driven), removing a pointless
-  30-second platform polling timer.
+
+### Fixed (reliability sweep)
+- **Cover actuators no longer self-trigger a false manual override** during their transient
+  `opening`/`closing` state (previously read as "off" → 30-minute control yield on Aeolus's own command).
+- **Out-of-range source readings no longer refresh freshness** (`member_seen`), so the stale-sensor
+  safety check trips correctly on a sensor emitting only garbage.
+- **Actuator service calls are awaited and log failures** instead of fire-and-forget swallowing them
+  (the engine no longer believes a device moved when the command failed).
+- All entities are now `should_poll = False` (push/command-driven), removing a pointless 30-second
+  platform polling timer.
+
+### Changed
+- **Diagnostic logging**: Aeolus now logs (transition-gated) when it commands an actuator on/off, hits
+  a max-runtime force-off, engages/clears an outdoor-AQ veto, detects a manual override, adds/removes a
+  Space or Actuator live, or raises/clears a repair issue.
+- **Diagnostics dump** adds per-metric staleness + `last_raw`, per-space `effective_ach` +
+  `time_to_target_min`, per-actuator blocking causes (veto / runtime cap), and the control thresholds.
+- Documentation corrections: `recalibrate` is documented as a reserved no-op stub; the fixed 120-minute
+  continuous-run cap is documented; induced/pressure edges are correctly listed as deferred.
 
 ## [0.4.0] - 2026-06-09
 
