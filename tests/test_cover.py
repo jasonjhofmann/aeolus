@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigSubentryData
+from homeassistant.const import SERVICE_CLOSE_COVER, SERVICE_OPEN_COVER
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from custom_components.aeolus.const import (
     CONF_ACTUATOR_ENTITY,
@@ -16,6 +20,10 @@ COVER = "cover.window"
 
 
 async def test_cover_actuator_command_branch(hass: HomeAssistant) -> None:
+    # Register the cover services the engine dispatches; otherwise HA raises
+    # ServiceNotFound eagerly when command_actuator opens the cover.
+    async_mock_service(hass, "cover", SERVICE_OPEN_COVER)
+    async_mock_service(hass, "cover", SERVICE_CLOSE_COVER)
     hass.states.async_set("sensor.z_co2", "1200")
     hass.states.async_set(COVER, "closed")
     entry = MockConfigEntry(
