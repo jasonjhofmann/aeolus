@@ -16,8 +16,9 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .engine import ActuatorRuntime
+from .engine import OVERRIDE_WINDOW, ActuatorRuntime
 from .models import AeolusConfigEntry
+from .safety import is_stale, max_runtime_exceeded, outdoor_air_vetoed
 
 
 def _dt(value: datetime | None) -> str | None:
@@ -51,20 +52,27 @@ async def async_get_config_entry_diagnostics(
 
     spaces: list[dict[str, Any]] = []
     for sid, space in engine.spaces.items():
-        metrics = [
-            {
-                "kind": metric.kind.value,
-                "sensors": list(metric.sensors),
-                "aggregation": metric.aggregation.value,
-                "value": engine.metric_value(sid, midx),
-                "slope_per_min": engine.metric_slope_per_min(sid, midx),
-                "active_tier": mrt.active_tier if (mrt := engine.metric_runtime(sid, midx)) else None,
-                "managed": engine.metric_manage(sid, midx),
-                "available": engine.metric_available(sid, midx),
-                "tiers": engine.metric_tiers_view(sid, midx),
-            }
-            for midx, metric in enumerate(space.metrics)
-        ]
+        metrics: list[dict[str, Any]] = []
+        for midx, metric in enumerate(space.metrics):
+            mrt = engine.metric_runtime(sid, midx)
+            seen = mrt.member_seen if mrt is not None else {}
+            metrics.append(
+                {
+                    "kind": metric.kind.value,
+                    "sensors": list(metric.sensors),
+                    "aggregation": metric.aggregation.value,
+                    "value": engine.metric_value(sid, midx),
+                    "last_raw": mrt.last_raw if mrt is not None else None,
+                    "slope_per_min": engine.metric_slope_per_min(sid, midx),
+                    "active_tier": mrt.active_tier if mrt is not None else None,
+                    "managed": engine.metric_manage(sid, midx),
+                    "available": engine.metric_available(sid, midx),
+                    # Why "stale"? — the freshness signal the safety check uses.
+                    "stale": is_stale(seen, now),
+                    "last_member_seen": _dt(max(seen.values())) if seen else None,
+                    "tiers": engine.metric_tiers_view(sid, midx),
+                }
+            )
         spaces.append(
             {
                 "subentry_id": sid,
@@ -79,6 +87,8 @@ async def async_get_config_entry_diagnostics(
                 "mitigating": engine.space_mitigating(sid),
                 "attention": engine.space_attention(sid, now),
                 "available": engine.space_available(sid),
+                "effective_ach": engine.space_effective_ach(sid),
+                "time_to_target_min": engine.space_time_to_target_min(sid),
                 "active_actuators": engine.space_active_actuator_names(sid),
                 "driving_metrics": [k.value for k in engine.space_driving_metrics(sid)],
                 "metrics": metrics,
@@ -98,6 +108,17 @@ async def async_get_config_entry_diagnostics(
             "rearm_interval_sec": _td(act.rearm_interval),
             "override_grace_sec": _td(act.override_grace),
             "is_overridden": engine.actuator_is_overridden(aid, now),
+            # Blocking causes, evaluated now — answers "why isn't it running?".
+            "outdoor_air_vetoed": any(
+                inf.space_id in engine.spaces
+                and outdoor_air_vetoed(hass, act, engine.spaces[inf.space_id])
+                for inf in act.influences
+            ),
+            "max_runtime_exceeded": (
+                max_runtime_exceeded(rt, act, now)
+                if (rt := engine.actuator_runtime(aid)) is not None
+                else False
+            ),
             "influences": [
                 {
                     "space_id": inf.space_id,
@@ -117,6 +138,11 @@ async def async_get_config_entry_diagnostics(
     return {
         "c_out_ppm": engine.c_out_ppm,
         "paused": engine.paused,
+        # Control thresholds in effect, so a log reader can interpret min on/off
+        # holds and the override yield window.
+        "min_on_sec": engine.min_on.total_seconds(),
+        "min_off_sec": engine.min_off.total_seconds(),
+        "override_window_sec": OVERRIDE_WINDOW.total_seconds(),
         "spaces": spaces,
         "actuators": actuators,
     }
