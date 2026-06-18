@@ -32,9 +32,13 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def _recalibrate(call: ServiceCall) -> None:
         entry = hass.config_entries.async_get_entry(call.data[ATTR_CONFIG_ENTRY_ID])
         if entry is None or entry.domain != DOMAIN:
-            raise ServiceValidationError("Aeolus config entry not found")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="entry_not_found"
+            )
         if entry.state is not ConfigEntryState.LOADED:
-            raise ServiceValidationError("Aeolus config entry is not loaded")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="entry_not_loaded"
+            )
         # TODO(FR-A1/S4): engine.reset_observed_gains()
         _ = cast(AeolusConfigEntry, entry).runtime_data.engine
 

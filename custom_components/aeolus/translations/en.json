@@ -255,5 +255,13 @@
         }
       }
     }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "The selected configuration entry is not an Aeolus entry, or no longer exists."
+    },
+    "entry_not_loaded": {
+      "message": "The Aeolus configuration entry is not loaded. Enable it and try again."
+    }
   }
 }
