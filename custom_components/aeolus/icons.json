@@ -1,0 +1,27 @@
+{
+  "entity": {
+    "sensor": {
+      "co2": { "default": "mdi:molecule-co2" },
+      "pm1": { "default": "mdi:blur" },
+      "pm2_5": { "default": "mdi:blur" },
+      "pm10": { "default": "mdi:blur" },
+      "aqi": { "default": "mdi:air-filter" },
+      "generic": { "default": "mdi:gauge" },
+      "co2_slope": { "default": "mdi:slope-downhill" },
+      "pm1_slope": { "default": "mdi:slope-downhill" },
+      "pm2_5_slope": { "default": "mdi:slope-downhill" },
+      "pm10_slope": { "default": "mdi:slope-downhill" },
+      "aqi_slope": { "default": "mdi:slope-downhill" },
+      "generic_slope": { "default": "mdi:slope-downhill" },
+      "air_change_rate": { "default": "mdi:air-filter" },
+      "reason": { "default": "mdi:information-outline" }
+    },
+    "number": {
+      "pm1_threshold": { "default": "mdi:blur" },
+      "pm2_5_threshold": { "default": "mdi:blur" },
+      "pm10_threshold": { "default": "mdi:blur" },
+      "aqi_threshold": { "default": "mdi:air-filter" },
+      "generic_threshold": { "default": "mdi:gauge" }
+    }
+  }
+}

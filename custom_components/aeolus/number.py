@@ -18,7 +18,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
-    METRIC_ICON,
     METRIC_THRESHOLD_MAX,
     METRIC_UNIT,
     SUBENTRY_TYPE_SPACE,
@@ -105,7 +104,6 @@ class AeolusMetricThresholdNumber(AeolusSpaceEntity, NumberEntity):
         self._attr_device_class = _METRIC_DEVICE_CLASS.get(kind)
         self._attr_native_unit_of_measurement = METRIC_UNIT.get(kind)
         self._attr_native_max_value = METRIC_THRESHOLD_MAX.get(kind, 1000.0)
-        self._attr_icon = METRIC_ICON.get(kind)
 
     @property
     def native_value(self) -> float | None:

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import STATE_OFF
+from homeassistant.const import STATE_OFF, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, METRIC_LABEL, SUBENTRY_TYPE_SPACE, MetricKind
+from .const import DOMAIN, SUBENTRY_TYPE_SPACE, MetricKind
 from .engine import AeolusEngine
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
@@ -92,8 +91,6 @@ class AeolusMetricManageSwitch(AeolusSpaceEntity, SwitchEntity, RestoreEntity):
         self._midx = midx
         self._attr_translation_key = f"manage_{kind.value}"
         self._attr_unique_id = f"{space.subentry_id}_manage_{kind.value}"
-        # English fallback name; translations carry the localized form.
-        self._attr_name = f"Manage {METRIC_LABEL.get(kind, kind.value)}"
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

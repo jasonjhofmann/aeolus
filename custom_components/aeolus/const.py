@@ -193,14 +193,8 @@ METRIC_PRECISION: Final[dict[MetricKind, int]] = {
     MetricKind.AQI: 0,
     MetricKind.GENERIC: 1,
 }
-METRIC_ICON: Final[dict[MetricKind, str]] = {
-    MetricKind.CO2: "mdi:molecule-co2",
-    MetricKind.PM1: "mdi:blur",
-    MetricKind.PM2_5: "mdi:blur",
-    MetricKind.PM10: "mdi:blur",
-    MetricKind.AQI: "mdi:air-filter",
-    MetricKind.GENERIC: "mdi:gauge",
-}
+# Per-metric icons live in icons.json (icon-translations rule), keyed by each
+# entity's translation_key — not set on the entity objects.
 # Upper bound for the per-metric engage-threshold `number` (FR-E7). CO₂ uses the
 # dedicated Target number, so it is absent here.
 METRIC_THRESHOLD_MAX: Final[dict[MetricKind, float]] = {

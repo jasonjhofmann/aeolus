@@ -24,7 +24,6 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    METRIC_ICON,
     METRIC_PRECISION,
     METRIC_UNIT,
     SUBENTRY_TYPE_SPACE,
@@ -123,7 +122,6 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
         # "<Space>" sensor), and (b) the entity_id gets a `managed_` marker that never
         # collides with the user's raw `<room>_<metric>` source sensors (FR-E8).
         self._attr_translation_key = kind.value
-        self._attr_icon = METRIC_ICON.get(kind)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -187,7 +185,6 @@ class AeolusMetricSlopeSensor(_SpaceUpdateSensor):
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
-    _attr_icon = "mdi:slope-downhill"
 
     def __init__(self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind) -> None:
         super().__init__(engine, space)
@@ -218,7 +215,6 @@ class AeolusAchSensor(_SpaceUpdateSensor):
     _attr_suggested_display_precision = 2
     _attr_translation_key = "air_change_rate"
     _attr_native_unit_of_measurement = "/h"
-    _attr_icon = "mdi:air-filter"
 
     def __init__(self, engine: AeolusEngine, space: Space, midx: int) -> None:
         super().__init__(engine, space)
@@ -238,7 +234,6 @@ class AeolusReasonSensor(_SpaceUpdateSensor):
     """Plain-language explanation of the current action/inaction (FR-U2)."""
 
     _attr_translation_key = "reason"
-    _attr_icon = "mdi:information-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, engine: AeolusEngine, space: Space) -> None:
