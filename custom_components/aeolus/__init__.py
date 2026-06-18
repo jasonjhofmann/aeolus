@@ -14,6 +14,7 @@ from typing import Any
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
@@ -70,6 +71,10 @@ from .models import (
 from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
+
+# Config-entry-only integration: `async_setup` exists solely to register the
+# integration-level actions; there is no YAML configuration for the `aeolus:` key.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,

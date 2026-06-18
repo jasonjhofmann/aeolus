@@ -20,7 +20,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - **hassfest** + **HACS** validation.
 - `requirements_test.txt` for local test/dev parity.
 
-(Infrastructure only — no change to the shipped integration code or behavior.)
+### Fixed
+- The new CI surfaced pre-existing **hassfest** errors (nothing validated them before):
+  - Removed the invalid `homeassistant` key from `manifest.json` (it is not a valid manifest
+    key — the minimum-HA-version floor is declared in `hacs.json`; this corrects the v0.5.2
+    addition that hassfest rejects).
+  - Replaced the HTML-like `<pollutant>` placeholder with `[pollutant]` in the config-flow
+    description strings (hassfest forbids HTML in translations).
+  - Added `CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)` (config-entry-only
+    integration), clearing the hassfest config-schema warning.
+- Set the GitHub repository topics so HACS validation passes.
+
+No change to control behavior.
 
 ## [0.5.2] - 2026-06-17
 
