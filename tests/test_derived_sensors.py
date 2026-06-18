@@ -31,5 +31,9 @@ async def test_slope_and_ach_sensors_exist(hass: HomeAssistant) -> None:
     ach = reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_air_change_rate")
     assert slope is not None
     assert ach is not None
-    assert hass.states.get(slope) is not None
+    # Slope is registered but disabled by default (also a value-sensor attribute).
+    assert reg.async_get(slope).disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert hass.states.get(slope) is None
+    # ACH stays enabled — it's a headline metric, not redundant with an attribute.
+    assert reg.async_get(ach).disabled_by is None
     assert hass.states.get(ach) is not None

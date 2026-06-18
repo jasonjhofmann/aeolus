@@ -181,10 +181,17 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
 
 
 class AeolusMetricSlopeSensor(_SpaceUpdateSensor):
-    """Signed rate of change of a metric's EMA (à la VTherm's temp slope)."""
+    """Signed rate of change of a metric's EMA (à la VTherm's temp slope).
+
+    A derived diagnostic, and also exposed as a `*_slope_per_min` attribute on
+    the metric's value sensor — so it's disabled by default to avoid registry/
+    recorder noise (entity-disabled-by-default); enable it per-Space if wanted.
+    """
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind) -> None:
         super().__init__(engine, space)
@@ -213,6 +220,7 @@ class AeolusAchSensor(_SpaceUpdateSensor):
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_translation_key = "air_change_rate"
     _attr_native_unit_of_measurement = "/h"
 
