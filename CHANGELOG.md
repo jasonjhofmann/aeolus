@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-06-17
+
 ### Changed
 - Tooling: declare Python **3.14** as the supported floor (`requires-python>=3.14`,
   ruff `target-version=py314`, mypy `python_version=3.14`) to match Home Assistant's
