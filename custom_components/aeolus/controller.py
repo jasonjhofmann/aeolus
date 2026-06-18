@@ -83,8 +83,9 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
                 art.aq_vetoed = vetoed
                 if vetoed:
                     _LOGGER.warning(
-                        "Aeolus: %s outdoor-AQ veto engaged — outdoor PM over threshold; "
-                        "ventilation via this pathway suspended", act.name,
+                        "Aeolus: %s outdoor-AQ veto engaged — outdoor PM over "
+                        "threshold; ventilation via this pathway suspended",
+                        act.name,
                     )
                 else:
                     _LOGGER.info("Aeolus: %s outdoor-AQ veto cleared", act.name)
@@ -101,8 +102,10 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
             # force-off) once — command_actuator is idempotent so subsequent ticks
             # won't re-log a no-op.
             _LOGGER.warning(
-                "Aeolus: %s hit max runtime (%.0f min) — forcing off despite active demand",
-                act.name, act.max_runtime_min,
+                "Aeolus: %s hit max runtime (%.0f min) — forcing off "
+                "despite active demand",
+                act.name,
+                act.max_runtime_min,
             )
             setpoint = 0
         engine.command_actuator(act_id, setpoint, now)

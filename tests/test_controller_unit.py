@@ -23,7 +23,7 @@ def _mrt(ema: float | None = None, slope_per_min: float | None = None) -> Metric
     if ema is not None:
         m.ema.seed(ema, None)
     if slope_per_min is not None:
-        m.slope._smoother.seed(slope_per_min / 60.0, None)  # noqa: SLF001
+        m.slope._smoother.seed(slope_per_min / 60.0, None)
     return m
 
 
@@ -35,7 +35,7 @@ class _FakeEngine:
     def __init__(self, runtimes: dict[str, SpaceRuntime]) -> None:
         self._r = runtimes
 
-    def space_runtime(self, space_id: str):  # noqa: ANN201
+    def space_runtime(self, space_id: str):
         return self._r.get(space_id)
 
 
@@ -86,4 +86,6 @@ def test_induced_not_applicable_when_source_not_lower() -> None:
 
 def test_induced_not_applicable_without_source() -> None:
     eng = _FakeEngine({"p": _rt(1200)})
-    assert _induced_applicable(eng, Influence(space_id="p", source_space_id=None)) is False
+    assert (
+        _induced_applicable(eng, Influence(space_id="p", source_space_id=None)) is False
+    )

@@ -15,7 +15,9 @@ import math
 from .const import C_OUT_GAP_EPSILON_PPM
 
 
-def effective_ach(slope_ppm_per_hour: float, co2_ppm: float, c_out_ppm: float) -> float | None:
+def effective_ach(
+    slope_ppm_per_hour: float, co2_ppm: float, c_out_ppm: float
+) -> float | None:
     """Gap-normalized air-change rate (1/hour). None if the gap is too small.
 
     Only meaningful during low-generation decay; the caller decides when to

@@ -22,7 +22,9 @@ from custom_components.aeolus.const import (
 ERV = "input_boolean.erv"
 
 
-async def _setup(hass: HomeAssistant, outdoor_pm: str, filter_eff: float) -> MockConfigEntry:
+async def _setup(
+    hass: HomeAssistant, outdoor_pm: str, filter_eff: float
+) -> MockConfigEntry:
     await async_setup_component(hass, "input_boolean", {"input_boolean": {"erv": {}}})
     hass.states.async_set("sensor.z_co2", "1200")  # high → wants mitigation
     hass.states.async_set("sensor.outdoor_pm", outdoor_pm)

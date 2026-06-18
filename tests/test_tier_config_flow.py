@@ -8,7 +8,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aeolus.config_flow import CONF_ADD_ANOTHER_TIER, CONF_ADD_GRADUATED
+from custom_components.aeolus.config_flow import (
+    CONF_ADD_ANOTHER_TIER,
+    CONF_ADD_GRADUATED,
+)
 from custom_components.aeolus.const import (
     CONF_ACTUATOR_ENTITY,
     CONF_CO2_SENSORS,
@@ -27,11 +30,15 @@ from custom_components.aeolus.const import (
 async def test_space_wizard_creates_pm_ladder(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.kpm", "12")
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         options={CONF_ENABLE_LADDERS: True},  # FR-C9: wizard is opt-in
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="actuator", title="Hood", unique_id=None,
+                subentry_type="actuator",
+                title="Hood",
+                unique_id=None,
                 data={CONF_ACTUATOR_ENTITY: "fan.hood", "mechanism": "exhaust"},
             ),
         ],
@@ -42,7 +49,9 @@ async def test_space_wizard_creates_pm_ladder(hass: HomeAssistant) -> None:
     hood_id = next(sid for sid, s in entry.subentries.items() if s.title == "Hood")
 
     subs = hass.config_entries.subentries
-    r = await subs.async_init((entry.entry_id, SUBENTRY_TYPE_SPACE), context={"source": "user"})
+    r = await subs.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_SPACE), context={"source": "user"}
+    )
     assert r["type"] is FlowResultType.FORM and r["step_id"] == "user"
 
     r = await subs.async_configure(
@@ -67,7 +76,9 @@ async def test_space_wizard_creates_pm_ladder(hass: HomeAssistant) -> None:
     )
     assert r["type"] is FlowResultType.CREATE_ENTRY
 
-    space = next(s for s in entry.subentries.values() if s.subentry_type == SUBENTRY_TYPE_SPACE)
+    space = next(
+        s for s in entry.subentries.values() if s.subentry_type == SUBENTRY_TYPE_SPACE
+    )
     metrics = space.data[CONF_METRICS]
     assert metrics[0][CONF_METRIC_KIND] == "pm2_5"
     assert metrics[0][CONF_METRIC_SENSORS] == ["sensor.kpm"]

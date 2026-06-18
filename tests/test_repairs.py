@@ -18,7 +18,9 @@ def _space_entry(sensor: str) -> MockConfigEntry:
         data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
                 data={CONF_CO2_SENSORS: [sensor], "target_ppm": 600, "high_ppm": 700},
             )
         ],

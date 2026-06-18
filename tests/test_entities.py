@@ -25,7 +25,11 @@ async def _setup_space(hass: HomeAssistant) -> tuple[MockConfigEntry, str]:
                 subentry_type="space",
                 title="Zone",
                 unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             )
         ],
     )
@@ -67,9 +71,13 @@ async def test_mode_select_off(hass: HomeAssistant) -> None:
 async def test_master_switch_pauses(hass: HomeAssistant) -> None:
     entry, _ = await _setup_space(hass)
     eid = _eid(hass, "switch", f"{entry.entry_id}_management")
-    await hass.services.async_call("switch", "turn_off", {"entity_id": eid}, blocking=True)
+    await hass.services.async_call(
+        "switch", "turn_off", {"entity_id": eid}, blocking=True
+    )
     assert entry.runtime_data.engine.paused is True
-    await hass.services.async_call("switch", "turn_on", {"entity_id": eid}, blocking=True)
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": eid}, blocking=True
+    )
     assert entry.runtime_data.engine.paused is False
 
 
@@ -111,7 +119,11 @@ async def test_sensor_restores_ema_for_continuity(hass: HomeAssistant) -> None:
                 subentry_type="space",
                 title="Zone",
                 unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             )
         ],
     )

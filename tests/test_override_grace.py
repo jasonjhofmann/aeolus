@@ -27,13 +27,23 @@ async def _engine(hass: HomeAssistant, grace_min: float):
     if grace_min:
         data[CONF_OVERRIDE_GRACE_MIN] = grace_min
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 600, "high_ppm": 700},
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 600,
+                    "high_ppm": 700,
+                },
             ),
-            ConfigSubentryData(subentry_type="actuator", title="CloudFan", unique_id=None, data=data),
+            ConfigSubentryData(
+                subentry_type="actuator", title="CloudFan", unique_id=None, data=data
+            ),
         ],
     )
     entry.add_to_hass(hass)

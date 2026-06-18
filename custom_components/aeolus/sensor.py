@@ -54,7 +54,9 @@ def _build_space_sensors(engine: AeolusEngine, space: Space) -> list[SensorEntit
     entities: list[SensorEntity] = []
     for midx, metric in enumerate(space.metrics):
         is_primary = midx == primary_idx
-        entities.append(AeolusMetricValueSensor(engine, space, midx, metric.kind, is_primary))
+        entities.append(
+            AeolusMetricValueSensor(engine, space, midx, metric.kind, is_primary)
+        )
         entities.append(AeolusMetricSlopeSensor(engine, space, midx, metric.kind))
         if metric.kind is MetricKind.CO2:
             entities.append(AeolusAchSensor(engine, space, midx))
@@ -76,13 +78,17 @@ async def async_setup_entry(
     def _add_for_space(sub_id: str) -> None:
         space = engine.spaces.get(sub_id)
         if space is not None:
-            async_add_entities(_build_space_sensors(engine, space), config_subentry_id=sub_id)
+            async_add_entities(
+                _build_space_sensors(engine, space), config_subentry_id=sub_id
+            )
 
     for sub_id, sub in entry.subentries.items():
         if sub.subentry_type == SUBENTRY_TYPE_SPACE:
             _add_for_space(sub_id)
     entry.async_on_unload(
-        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+        async_dispatcher_connect(
+            hass, signal_space_added(entry.entry_id), _add_for_space
+        )
     )
 
 
@@ -128,8 +134,10 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
         self._attr_native_unit_of_measurement = METRIC_UNIT.get(kind)
         self._attr_suggested_display_precision = METRIC_PRECISION.get(kind, 1)
         # Preserve the original CO₂ unique_id so a live deployment is unchanged.
-        self._attr_unique_id = f"{space.subentry_id}_co2" if kind is MetricKind.CO2 else (
-            f"{space.subentry_id}_{kind.value}"
+        self._attr_unique_id = (
+            f"{space.subentry_id}_co2"
+            if kind is MetricKind.CO2
+            else (f"{space.subentry_id}_{kind.value}")
         )
         # Named "Managed <metric>" via the per-kind translation key, so (a) no single
         # metric is the space's unnamed "default" (CO₂ used to be name=None → the bare
@@ -165,7 +173,9 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
             attrs.update(
                 {
                     "raw_co2": raw,
-                    "co2_slope_per_min": self._engine.metric_slope_per_min(sid, self._midx),
+                    "co2_slope_per_min": self._engine.metric_slope_per_min(
+                        sid, self._midx
+                    ),
                     "effective_ach": self._engine.space_effective_ach(sid),
                     "time_to_target_min": self._engine.space_time_to_target_min(sid),
                     "target_ppm": self._space.target_ppm,
@@ -189,7 +199,9 @@ class AeolusMetricValueSensor(_SpaceUpdateSensor, RestoreSensor):
             attrs["status"] = self._engine.space_status(sid)
             attrs["reason"] = self._engine.space_reason(sid)
             attrs["active_actuators"] = self._engine.space_active_actuator_names(sid)
-            attrs["driving_metrics"] = [k.value for k in self._engine.space_driving_metrics(sid)]
+            attrs["driving_metrics"] = [
+                k.value for k in self._engine.space_driving_metrics(sid)
+            ]
             attrs["mode"] = self._space.mode.value
         return attrs
 
@@ -207,7 +219,9 @@ class AeolusMetricSlopeSensor(_SpaceUpdateSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
 
-    def __init__(self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind) -> None:
+    def __init__(
+        self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind
+    ) -> None:
         super().__init__(engine, space)
         self._midx = midx
         self._kind = kind

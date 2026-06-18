@@ -50,7 +50,8 @@ async def _setup(hass: HomeAssistant, co2: str) -> MockConfigEntry:
                 unique_id=None,
                 data={
                     CONF_ACTUATOR_ENTITY: ACTUATOR,
-                    CONF_MECHANISM: Mechanism.TRANSFER.value,  # not outdoor-air → no AQ veto
+                    # transfer mechanism is not outdoor-air → no AQ veto
+                    CONF_MECHANISM: Mechanism.TRANSFER.value,
                 },
             ),
         ],

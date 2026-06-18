@@ -62,6 +62,8 @@ async def test_setup_with_space_creates_co2_sensor(hass: HomeAssistant) -> None:
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.office_managed_co2")  # managed value (no bare default)
+    state = hass.states.get(
+        "sensor.office_managed_co2"
+    )  # managed value (no bare default)
     assert state is not None
     assert float(state.state) == 650.0  # seeded EMA == first sample

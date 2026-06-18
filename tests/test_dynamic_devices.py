@@ -23,11 +23,19 @@ from custom_components.aeolus.const import (
 async def _setup(hass: HomeAssistant) -> MockConfigEntry:
     hass.states.async_set("sensor.a_co2", "650")
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Room A", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.a_co2"], "target_ppm": 800, "high_ppm": 1000},
+                subentry_type="space",
+                title="Room A",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.a_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             )
         ],
     )
@@ -44,7 +52,9 @@ async def test_add_space_subentry_live(hass: HomeAssistant) -> None:
 
     sub = ConfigSubentry(
         data={CONF_CO2_SENSORS: ["sensor.b_co2"], "target_ppm": 800, "high_ppm": 1000},
-        subentry_type="space", title="Room B", unique_id=None,
+        subentry_type="space",
+        title="Room B",
+        unique_id=None,
     )
     hass.config_entries.async_add_subentry(entry, sub)
     await hass.async_block_till_done()
@@ -54,10 +64,17 @@ async def test_add_space_subentry_live(hass: HomeAssistant) -> None:
     assert sub.subentry_id in entry.runtime_data.engine.spaces
 
     # Its device and entities exist.
-    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, sub.subentry_id)}) is not None
+    assert (
+        dr.async_get(hass).async_get_device(identifiers={(DOMAIN, sub.subentry_id)})
+        is not None
+    )
     reg = er.async_get(hass)
-    assert reg.async_get_entity_id("sensor", DOMAIN, f"{sub.subentry_id}_co2") is not None
-    assert reg.async_get_entity_id("select", DOMAIN, f"{sub.subentry_id}_mode") is not None
+    assert (
+        reg.async_get_entity_id("sensor", DOMAIN, f"{sub.subentry_id}_co2") is not None
+    )
+    assert (
+        reg.async_get_entity_id("select", DOMAIN, f"{sub.subentry_id}_mode") is not None
+    )
 
 
 async def test_remove_space_subentry_live(hass: HomeAssistant) -> None:
@@ -87,7 +104,9 @@ async def test_add_actuator_wires_co2_setpoint_live(hass: HomeAssistant) -> None
             "mechanism": "exhaust",
             CONF_SERVED_SPACES: [sid],
         },
-        subentry_type="actuator", title="Fan", unique_id=None,
+        subentry_type="actuator",
+        title="Fan",
+        unique_id=None,
     )
     hass.config_entries.async_add_subentry(entry, sub)
     await hass.async_block_till_done()
@@ -104,9 +123,14 @@ async def test_remove_actuator_purges_setpoint_live(hass: HomeAssistant) -> None
     sid = next(iter(engine.spaces))
     hass.states.async_set("switch.fan", "off")
     sub = ConfigSubentry(
-        data={CONF_ACTUATOR_ENTITY: "switch.fan", "mechanism": "exhaust",
-              CONF_SERVED_SPACES: [sid]},
-        subentry_type="actuator", title="Fan", unique_id=None,
+        data={
+            CONF_ACTUATOR_ENTITY: "switch.fan",
+            "mechanism": "exhaust",
+            CONF_SERVED_SPACES: [sid],
+        },
+        subentry_type="actuator",
+        title="Fan",
+        unique_id=None,
     )
     hass.config_entries.async_add_subentry(entry, sub)
     await hass.async_block_till_done()

@@ -23,7 +23,11 @@ async def test_sensor_follows_source_availability(hass: HomeAssistant) -> None:
                 subentry_type="space",
                 title="Zone",
                 unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             )
         ],
     )

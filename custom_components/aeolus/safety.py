@@ -25,9 +25,12 @@ OUTDOOR_AIR_MECHANISMS = frozenset(
 
 
 def is_stale(
-    member_seen: dict[str, datetime], now: datetime, *, stale_after_sec: float = DEFAULT_STALE_AFTER_SEC
+    member_seen: dict[str, datetime],
+    now: datetime,
+    *,
+    stale_after_sec: float = DEFAULT_STALE_AFTER_SEC,
 ) -> bool:
-    """True if EVERY member is stale — don't trust the aggregate timestamp (FR-M1/G5)."""
+    """True if EVERY member is stale (FR-M1/G5 — the aggregate timestamp lies)."""
     if not member_seen:
         return True
     cutoff = now - timedelta(seconds=stale_after_sec)
@@ -41,15 +44,15 @@ def is_space_stale(
     return is_stale(rt.member_seen, now, stale_after_sec=stale_after_sec)
 
 
-def outdoor_aq_blocks(outdoor_pm: float, filter_efficiency: float, threshold_pm: float) -> bool:
+def outdoor_aq_blocks(
+    outdoor_pm: float, filter_efficiency: float, threshold_pm: float
+) -> bool:
     """Filter-aware outdoor-AQ veto (FR-G3): estimated indoor PM contribution."""
     indoor_contribution = outdoor_pm * (1.0 - filter_efficiency)
     return indoor_contribution > threshold_pm
 
 
-def outdoor_air_vetoed(
-    hass: HomeAssistant, actuator: Actuator, space: Space
-) -> bool:
+def outdoor_air_vetoed(hass: HomeAssistant, actuator: Actuator, space: Space) -> bool:
     """Should this outdoor-air actuator be blocked for this space right now?
 
     Reads the per-pathway outdoor-AQ sensor (actuator's own intake sensor, else
@@ -68,12 +71,14 @@ def outdoor_air_vetoed(
         return False
     try:
         outdoor_pm = float(state.state)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
     return outdoor_aq_blocks(outdoor_pm, actuator.filter_efficiency, threshold)
 
 
-def max_runtime_exceeded(rt: ActuatorRuntime, actuator: Actuator, now: datetime) -> bool:
+def max_runtime_exceeded(
+    rt: ActuatorRuntime, actuator: Actuator, now: datetime
+) -> bool:
     """Per-actuator max-runtime cap (FR-G1 baseline safety)."""
     if rt.on_since is None:
         return False

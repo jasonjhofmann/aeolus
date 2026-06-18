@@ -46,7 +46,9 @@ async def async_setup_entry(
         if sub.subentry_type == SUBENTRY_TYPE_SPACE:
             _add_for_space(sub_id)
     entry.async_on_unload(
-        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+        async_dispatcher_connect(
+            hass, signal_space_added(entry.entry_id), _add_for_space
+        )
     )
 
 
@@ -95,7 +97,9 @@ class AeolusMetricManageSwitch(AeolusSpaceEntity, SwitchEntity, RestoreEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_entity_registry_enabled_default = False
 
-    def __init__(self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind) -> None:
+    def __init__(
+        self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind
+    ) -> None:
         super().__init__(engine, space)
         self._midx = midx
         self._attr_translation_key = f"manage_{kind.value}"

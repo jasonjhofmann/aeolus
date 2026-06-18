@@ -10,12 +10,16 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aeolus.const import CONF_ACTUATOR_ENTITY, CONF_CO2_SENSORS, DOMAIN
+from custom_components.aeolus.const import (
+    CONF_ACTUATOR_ENTITY,
+    CONF_CO2_SENSORS,
+    DOMAIN,
+)
 
 FAN = "input_boolean.fan"
 
 
-async def _engine(hass: HomeAssistant):  # noqa: ANN201
+async def _engine(hass: HomeAssistant):
     await async_setup_component(hass, "input_boolean", {"input_boolean": {"fan": {}}})
     hass.states.async_set("sensor.z_co2", "600")
     entry = MockConfigEntry(
@@ -24,11 +28,19 @@ async def _engine(hass: HomeAssistant):  # noqa: ANN201
         data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             ),
             ConfigSubentryData(
-                subentry_type="actuator", title="Fan", unique_id=None,
+                subentry_type="actuator",
+                title="Fan",
+                unique_id=None,
                 data={CONF_ACTUATOR_ENTITY: FAN, "mechanism": "transfer"},
             ),
         ],
@@ -103,7 +115,9 @@ async def test_min_off_blocks_quick_restart(hass: HomeAssistant) -> None:
     act_id = next(iter(engine.actuators))
     now = dt_util.utcnow()
     engine.command_actuator(act_id, True, now)
-    engine.command_actuator(act_id, False, now + timedelta(seconds=601))  # off (min-on ok)
+    engine.command_actuator(
+        act_id, False, now + timedelta(seconds=601)
+    )  # off (min-on ok)
     await hass.async_block_till_done()
     assert hass.states.get(FAN).state == "off"
     # turning back on within min-off (600 s) is suppressed

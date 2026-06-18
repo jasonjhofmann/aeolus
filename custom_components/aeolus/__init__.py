@@ -161,10 +161,15 @@ def _async_sync_missing_entity_issues(
             continue
         issue_id = f"{ISSUE_MISSING_PREFIX}{entry.entry_id}_{entity_id}"
         wanted.add(issue_id)
-        if issue_reg.async_get_issue(DOMAIN, issue_id) is None:  # newly missing → log once
+        if (
+            issue_reg.async_get_issue(DOMAIN, issue_id) is None
+        ):  # newly missing → log once
             _LOGGER.warning(
-                "Aeolus: configured %s '%s' for '%s' no longer exists — raising a repair issue",
-                kind, entity_id, owner,
+                "Aeolus: configured %s '%s' for '%s' no longer exists "
+                "— raising a repair issue",
+                kind,
+                entity_id,
+                owner,
             )
         ir.async_create_issue(
             hass,
@@ -182,7 +187,9 @@ def _async_sync_missing_entity_issues(
     prefix = f"{ISSUE_MISSING_PREFIX}{entry.entry_id}_"
     for domain, issue_id in list(issue_reg.issues):
         if domain == DOMAIN and issue_id.startswith(prefix) and issue_id not in wanted:
-            _LOGGER.info("Aeolus: missing-entity repair issue resolved — clearing %s", issue_id)
+            _LOGGER.info(
+                "Aeolus: missing-entity repair issue resolved — clearing %s", issue_id
+            )
             ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
@@ -239,13 +246,19 @@ async def async_remove_config_entry_device(
 # distinguishes Aeolus's smoothed/managed output from the user's raw source sensors
 # (whose convention is `<room>_<metric>`, e.g. the Aranet `sensor.primary_bedroom_co2`)
 # and so never collides with them. Status/control entities keep descriptive names.
-_VALUE_KINDS: frozenset[str] = frozenset({"co2", "pm1", "pm2_5", "pm10", "aqi", "generic"})
+_VALUE_KINDS: frozenset[str] = frozenset(
+    {"co2", "pm1", "pm2_5", "pm10", "aqi", "generic"}
+)
 _TAIL_OVERRIDES: dict[str, str] = {"reason": "status_reason", "target": "target_co2"}
 
 
 def _canonical_tail(suffix: str) -> str:
     """The object_id tail a fresh install generates for a given unique_id suffix."""
-    if suffix in _VALUE_KINDS or suffix.endswith("_slope") or suffix == "air_change_rate":
+    if (
+        suffix in _VALUE_KINDS
+        or suffix.endswith("_slope")
+        or suffix == "air_change_rate"
+    ):
         return f"managed_{suffix}"
     return _TAIL_OVERRIDES.get(suffix, suffix)
 
@@ -320,7 +333,9 @@ def _parse_actuator(sub_id: str, title: str, data: Mapping[str, Any]) -> Actuato
         filter_efficiency=float(data.get(CONF_FILTER_EFFICIENCY, 0.0)),
         outdoor_aq_entity=data.get(CONF_OUTDOOR_AQ_ENTITY),
         on_speed_pct=int(on_speed) if on_speed else None,
-        override_grace=timedelta(minutes=float(grace_min)) if grace_min else timedelta(0),
+        override_grace=timedelta(minutes=float(grace_min))
+        if grace_min
+        else timedelta(0),
         rearm_interval=timedelta(minutes=float(rearm_min)) if rearm_min else None,
         influences=[
             Influence(space_id=s, gain=Gain.MEDIUM, influence_type=InfluenceType.DIRECT)
@@ -346,7 +361,9 @@ def _parse_space(
         volume_ft3=data.get(CONF_VOLUME_FT3),
         outdoor_aq_entity=data.get(CONF_OUTDOOR_AQ_ENTITY),
         outdoor_aq_threshold=data.get(CONF_OUTDOOR_AQ_THRESHOLD),
-        metrics=_build_metrics(data, sub_id, co2_sensors, aggregation, target, high, actuators),
+        metrics=_build_metrics(
+            data, sub_id, co2_sensors, aggregation, target, high, actuators
+        ),
     )
 
 
@@ -389,7 +406,9 @@ def _parse_metric(m: Mapping[str, Any]) -> Metric:
     for t in m.get(CONF_TIERS, []):
         engage = float(t[CONF_TIER_ENGAGE])
         release = float(t.get(CONF_TIER_RELEASE) or engage * DEFAULT_RELEASE_FRACTION)
-        setpoints = {str(k): int(v) for k, v in (t.get(CONF_TIER_SETPOINTS) or {}).items()}
+        setpoints = {
+            str(k): int(v) for k, v in (t.get(CONF_TIER_SETPOINTS) or {}).items()
+        }
         tiers.append(Tier(engage_at=engage, release_at=release, setpoints=setpoints))
     tiers.sort(key=lambda tier: tier.engage_at)
     return Metric(

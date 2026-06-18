@@ -39,8 +39,11 @@ def test_outdoor_aq_blocks_is_filter_aware():
 def test_max_runtime():
     art = ActuatorRuntime(commanded_setpoint=100, on_since=T)
     act = Actuator(
-        subentry_id="a", name="A", entity_id="switch.x",
-        mechanism=Mechanism.EXHAUST, max_runtime_min=10.0,
+        subentry_id="a",
+        name="A",
+        entity_id="switch.x",
+        mechanism=Mechanism.EXHAUST,
+        max_runtime_min=10.0,
     )
     assert max_runtime_exceeded(art, act, T + timedelta(minutes=11)) is True
     assert max_runtime_exceeded(art, act, T + timedelta(minutes=5)) is False
@@ -48,12 +51,18 @@ def test_max_runtime():
 
 async def test_outdoor_air_vetoed_per_pathway(hass: HomeAssistant) -> None:
     space = Space(
-        subentry_id="s", name="S", co2_sensors=[],
-        outdoor_aq_entity="sensor.pm", outdoor_aq_threshold=35.0,
+        subentry_id="s",
+        name="S",
+        co2_sensors=[],
+        outdoor_aq_entity="sensor.pm",
+        outdoor_aq_threshold=35.0,
     )
     erv = Actuator(
-        subentry_id="a", name="ERV", entity_id="switch.erv",
-        mechanism=Mechanism.BALANCED, filter_efficiency=0.0,
+        subentry_id="a",
+        name="ERV",
+        entity_id="switch.erv",
+        mechanism=Mechanism.BALANCED,
+        filter_efficiency=0.0,
     )
     hass.states.async_set("sensor.pm", "100")
     assert outdoor_air_vetoed(hass, erv, space) is True  # unfiltered, over
@@ -62,7 +71,10 @@ async def test_outdoor_air_vetoed_per_pathway(hass: HomeAssistant) -> None:
     assert outdoor_air_vetoed(hass, erv, space) is False
 
     transfer = Actuator(
-        subentry_id="a2", name="T", entity_id="fan.t", mechanism=Mechanism.TRANSFER,
+        subentry_id="a2",
+        name="T",
+        entity_id="fan.t",
+        mechanism=Mechanism.TRANSFER,
     )
     assert outdoor_air_vetoed(hass, transfer, space) is False  # not outdoor air
 
@@ -77,8 +89,11 @@ async def test_outdoor_air_not_vetoed_without_config(hass: HomeAssistant) -> Non
 
 async def test_outdoor_air_fail_safe_on_unreadable_sensor(hass: HomeAssistant) -> None:
     space = Space(
-        subentry_id="s", name="S", co2_sensors=[],
-        outdoor_aq_entity="sensor.pm", outdoor_aq_threshold=35.0,
+        subentry_id="s",
+        name="S",
+        co2_sensors=[],
+        outdoor_aq_entity="sensor.pm",
+        outdoor_aq_threshold=35.0,
     )
     erv = Actuator(
         subentry_id="a", name="E", entity_id="switch.e", mechanism=Mechanism.SUPPLY

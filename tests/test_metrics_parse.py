@@ -1,4 +1,4 @@
-"""v3 phase α — metric synthesis (legacy CO₂), explicit metrics, multi-entity actuators."""
+"""v3 phase α — metric synthesis (legacy CO₂), explicit metrics, multi-entity."""
 
 from __future__ import annotations
 
@@ -23,23 +23,45 @@ from custom_components.aeolus.const import (
 async def test_phase_alpha_parsing(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.z_co2", "650")
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="CO2 Zone", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                subentry_type="space",
+                title="CO2 Zone",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             ),
             ConfigSubentryData(
-                subentry_type="space", title="PM Zone", unique_id=None,
-                data={CONF_METRICS: [{
-                    CONF_METRIC_KIND: "pm2_5",
-                    CONF_METRIC_SENSORS: ["sensor.kitchen_pm2_5"],
-                    CONF_TIERS: [{CONF_TIER_ENGAGE: 80}, {CONF_TIER_ENGAGE: 30}],
-                }]},
+                subentry_type="space",
+                title="PM Zone",
+                unique_id=None,
+                data={
+                    CONF_METRICS: [
+                        {
+                            CONF_METRIC_KIND: "pm2_5",
+                            CONF_METRIC_SENSORS: ["sensor.kitchen_pm2_5"],
+                            CONF_TIERS: [
+                                {CONF_TIER_ENGAGE: 80},
+                                {CONF_TIER_ENGAGE: 30},
+                            ],
+                        }
+                    ]
+                },
             ),
             ConfigSubentryData(
-                subentry_type="actuator", title="Purifier group", unique_id=None,
-                data={CONF_ACTUATOR_ENTITIES: ["fan.p1", "fan.p2"], "mechanism": "filter"},
+                subentry_type="actuator",
+                title="Purifier group",
+                unique_id=None,
+                data={
+                    CONF_ACTUATOR_ENTITIES: ["fan.p1", "fan.p2"],
+                    "mechanism": "filter",
+                },
             ),
         ],
     )

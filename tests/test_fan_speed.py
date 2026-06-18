@@ -5,7 +5,10 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from custom_components.aeolus.const import (
     CONF_ACTUATOR_ENTITY,
@@ -20,19 +23,31 @@ FAN = "fan.test_hood"
 
 async def _engine(hass: HomeAssistant, on_speed: int):
     hass.states.async_set("sensor.z_co2", "650")
-    hass.states.async_set(FAN, "off", {"percentage": 0, "percentage_step": 20, "supported_features": 49})
+    hass.states.async_set(
+        FAN, "off", {"percentage": 0, "percentage_step": 20, "supported_features": 49}
+    )
     data = {CONF_ACTUATOR_ENTITY: FAN, "mechanism": "exhaust"}
     if on_speed:
         data[CONF_ON_SPEED_PCT] = on_speed
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             ),
             ConfigSubentryData(
-                subentry_type="actuator", title="Hood", unique_id=None,
+                subentry_type="actuator",
+                title="Hood",
+                unique_id=None,
                 data={**data, CONF_SERVED_SPACES: []},
             ),
         ],

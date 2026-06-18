@@ -13,11 +13,19 @@ from custom_components.aeolus.const import CONF_CO2_SENSORS, DOMAIN
 async def test_slope_and_ach_sensors_exist(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.z_co2", "700")
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 600, "high_ppm": 700},
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 600,
+                    "high_ppm": 700,
+                },
             )
         ],
     )

@@ -36,9 +36,9 @@ from .const import (
     CONF_METRIC_SENSORS,
     CONF_METRICS,
     CONF_ON_SPEED_PCT,
-    CONF_OVERRIDE_GRACE_MIN,
     CONF_OUTDOOR_AQ_ENTITY,
     CONF_OUTDOOR_AQ_THRESHOLD,
+    CONF_OVERRIDE_GRACE_MIN,
     CONF_REARM_INTERVAL,
     CONF_SERVED_SPACES,
     CONF_TARGET_PPM,
@@ -132,7 +132,9 @@ def _space_schema(
     d = defaults or {}
     fields: dict[Any, Any] = {
         vol.Required(CONF_NAME, default=d.get(CONF_NAME, "")): str,
-        vol.Required(CONF_CO2_SENSORS, default=d.get(CONF_CO2_SENSORS, [])): _CO2_SENSOR_SELECTOR,
+        vol.Required(
+            CONF_CO2_SENSORS, default=d.get(CONF_CO2_SENSORS, [])
+        ): _CO2_SENSOR_SELECTOR,
         vol.Optional(
             CONF_AGGREGATION, default=d.get(CONF_AGGREGATION, Aggregation.MEAN.value)
         ): selector.SelectSelector(
@@ -141,12 +143,12 @@ def _space_schema(
                 translation_key="aggregation",
             )
         ),
-        vol.Optional(CONF_TARGET_PPM, default=d.get(CONF_TARGET_PPM, DEFAULT_TARGET_PPM)): vol.All(
-            vol.Coerce(int), vol.Range(min=420, max=2000)
-        ),
-        vol.Optional(CONF_HIGH_PPM, default=d.get(CONF_HIGH_PPM, DEFAULT_HIGH_PPM)): vol.All(
-            vol.Coerce(int), vol.Range(min=420, max=5000)
-        ),
+        vol.Optional(
+            CONF_TARGET_PPM, default=d.get(CONF_TARGET_PPM, DEFAULT_TARGET_PPM)
+        ): vol.All(vol.Coerce(int), vol.Range(min=420, max=2000)),
+        vol.Optional(
+            CONF_HIGH_PPM, default=d.get(CONF_HIGH_PPM, DEFAULT_HIGH_PPM)
+        ): vol.All(vol.Coerce(int), vol.Range(min=420, max=5000)),
         vol.Optional(CONF_VOLUME_FT3, default=d.get(CONF_VOLUME_FT3)): vol.Any(
             None, vol.Coerce(float)
         ),
@@ -155,9 +157,10 @@ def _space_schema(
         # strategies are blocked. Per-actuator intake sensor (below) overrides.
         vol.Optional(
             CONF_OUTDOOR_AQ_ENTITY, default=d.get(CONF_OUTDOOR_AQ_ENTITY)
-        ): vol.Any(None, selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="sensor")
-        )),
+        ): vol.Any(
+            None,
+            selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+        ),
         vol.Optional(
             CONF_OUTDOOR_AQ_THRESHOLD, default=d.get(CONF_OUTDOOR_AQ_THRESHOLD)
         ): vol.Any(None, vol.Coerce(float)),
@@ -167,7 +170,9 @@ def _space_schema(
     # the common simple-CO₂ case isn't cluttered by it. When hidden, the toggle
     # simply isn't offered and the flow stays on the simple path.
     if show_graduated:
-        fields[vol.Optional(CONF_ADD_GRADUATED, default=False)] = selector.BooleanSelector()
+        fields[vol.Optional(CONF_ADD_GRADUATED, default=False)] = (
+            selector.BooleanSelector()
+        )
     return vol.Schema(fields)
 
 
@@ -175,7 +180,9 @@ def _metric_schema() -> vol.Schema:
     """Pick the pollutant + its sensors for one graduated metric (FR-P1)."""
     return vol.Schema(
         {
-            vol.Required(CONF_METRIC_KIND, default=MetricKind.PM2_5.value): selector.SelectSelector(
+            vol.Required(
+                CONF_METRIC_KIND, default=MetricKind.PM2_5.value
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[k.value for k in MetricKind if k is not MetricKind.CO2],
                     translation_key="metric_kind",
@@ -188,7 +195,8 @@ def _metric_schema() -> vol.Schema:
                 CONF_AGGREGATION, default=Aggregation.MAX.value
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=[a.value for a in Aggregation], translation_key="aggregation"
+                    options=[a.value for a in Aggregation],
+                    translation_key="aggregation",
                 )
             ),
         }
@@ -210,11 +218,16 @@ def _tier_schema(actuators: list[tuple[str, str]]) -> vol.Schema:
     for title, _ in actuators:
         fields[vol.Optional(title, default=0)] = selector.NumberSelector(
             selector.NumberSelectorConfig(
-                min=0, max=100, step=5, mode=selector.NumberSelectorMode.SLIDER,
+                min=0,
+                max=100,
+                step=5,
+                mode=selector.NumberSelectorMode.SLIDER,
                 unit_of_measurement="%",
             )
         )
-    fields[vol.Optional(CONF_ADD_ANOTHER_TIER, default=False)] = selector.BooleanSelector()
+    fields[vol.Optional(CONF_ADD_ANOTHER_TIER, default=False)] = (
+        selector.BooleanSelector()
+    )
     return vol.Schema(fields)
 
 
@@ -282,7 +295,9 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             enter_wizard = self._begin(user_input)
             # Re-authoring replaces the metrics; otherwise carry them forward.
-            self._metrics = [] if enter_wizard else list(self._subentry.data.get(CONF_METRICS, []))
+            self._metrics = (
+                [] if enter_wizard else list(self._subentry.data.get(CONF_METRICS, []))
+            )
             return await self.async_step_metric() if enter_wizard else self._finish()
         return self.async_show_form(
             step_id="reconfigure",
@@ -313,7 +328,10 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
                 if int(user_input.get(title) or 0) > 0
             }
             self._tiers.append(
-                {CONF_TIER_ENGAGE: float(user_input[CONF_TIER_ENGAGE]), CONF_TIER_SETPOINTS: setpoints}
+                {
+                    CONF_TIER_ENGAGE: float(user_input[CONF_TIER_ENGAGE]),
+                    CONF_TIER_SETPOINTS: setpoints,
+                }
             )
             if user_input.get(CONF_ADD_ANOTHER_TIER):
                 return await self.async_step_tier()
@@ -371,7 +389,10 @@ def _actuator_schema(
                 CONF_ON_SPEED_PCT, default=d.get(CONF_ON_SPEED_PCT, 0)
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
-                    min=0, max=100, step=5, mode=selector.NumberSelectorMode.SLIDER,
+                    min=0,
+                    max=100,
+                    step=5,
+                    mode=selector.NumberSelectorMode.SLIDER,
                     unit_of_measurement="%",
                 )
             ),
@@ -385,9 +406,10 @@ def _actuator_schema(
             # to the space's sensor when unset.
             vol.Optional(
                 CONF_OUTDOOR_AQ_ENTITY, default=d.get(CONF_OUTDOOR_AQ_ENTITY)
-            ): vol.Any(None, selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor")
-            )),
+            ): vol.Any(
+                None,
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            ),
         }
     )
 
@@ -419,7 +441,10 @@ class ActuatorSubentryFlow(ConfigSubentryFlow):
         subentry = self._get_reconfigure_subentry()
         if user_input is not None:
             return self.async_update_and_abort(
-                self._get_entry(), subentry, title=user_input[CONF_NAME], data=user_input
+                self._get_entry(),
+                subentry,
+                title=user_input[CONF_NAME],
+                data=user_input,
             )
         return self.async_show_form(
             step_id="reconfigure",

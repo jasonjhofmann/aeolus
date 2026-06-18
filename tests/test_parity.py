@@ -14,7 +14,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from custom_components.aeolus.const import (
     CONF_ACTUATOR_ENTITY,
@@ -30,25 +33,38 @@ from custom_components.aeolus.const import (
 from custom_components.aeolus.engine import signal_space_update
 
 
-async def _setup_co2_and_pm(hass: HomeAssistant) -> tuple[MockConfigEntry, str, str, int]:
+async def _setup_co2_and_pm(
+    hass: HomeAssistant,
+) -> tuple[MockConfigEntry, str, str, int]:
     """A Zone with CO₂ (700, calm) + a PM2.5 metric (tier-1 engage 30) and a hood."""
     hass.states.async_set("sensor.z_co2", "700")
     hass.states.async_set("sensor.z_pm", "5")
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
                 data={
-                    CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000,
-                    CONF_METRICS: [{
-                        CONF_METRIC_KIND: "pm2_5", CONF_METRIC_SENSORS: ["sensor.z_pm"],
-                        CONF_TIERS: [{CONF_TIER_ENGAGE: 30}],
-                    }],
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                    CONF_METRICS: [
+                        {
+                            CONF_METRIC_KIND: "pm2_5",
+                            CONF_METRIC_SENSORS: ["sensor.z_pm"],
+                            CONF_TIERS: [{CONF_TIER_ENGAGE: 30}],
+                        }
+                    ],
                 },
             ),
             ConfigSubentryData(
-                subentry_type="actuator", title="Hood", unique_id=None,
+                subentry_type="actuator",
+                title="Hood",
+                unique_id=None,
                 data={CONF_ACTUATOR_ENTITY: "fan.hood", CONF_MECHANISM: "exhaust"},
             ),
         ],
@@ -62,7 +78,9 @@ async def _setup_co2_and_pm(hass: HomeAssistant) -> tuple[MockConfigEntry, str, 
         async_mock_service(hass, "fan", svc)
     sid = next(iter(eng.spaces))
     hood = next(iter(eng.actuators))
-    pm_idx = next(i for i, m in enumerate(eng.spaces[sid].metrics) if m.kind.value == "pm2_5")
+    pm_idx = next(
+        i for i, m in enumerate(eng.spaces[sid].metrics) if m.kind.value == "pm2_5"
+    )
     return entry, sid, hood, pm_idx
 
 
@@ -70,12 +88,14 @@ def _eid(hass: HomeAssistant, domain: str, unique: str) -> str | None:
     return er.async_get(hass).async_get_entity_id(domain, DOMAIN, unique)
 
 
-def _drive_pm(hass: HomeAssistant, entry: MockConfigEntry, sid: str, pm_idx: int, value: float):
+def _drive_pm(
+    hass: HomeAssistant, entry: MockConfigEntry, sid: str, pm_idx: int, value: float
+):
     """Force the PM EMA and re-evaluate + refresh entities (no time advance)."""
     eng = entry.runtime_data.engine
     mrt = eng.metric_runtime(sid, pm_idx)
     mrt.member_seen["sensor.z_pm"] = dt_util.utcnow()
-    mrt.ema._ema = float(value)  # noqa: SLF001
+    mrt.ema._ema = float(value)
     eng.request_evaluation()
     async_dispatcher_send(hass, signal_space_update(eng.entry_id, sid))
 
@@ -89,7 +109,9 @@ async def test_per_metric_sensors_symmetric_naming(hass: HomeAssistant) -> None:
     assert _eid(hass, "sensor", f"{sid}_air_change_rate") is not None
     assert _eid(hass, "sensor", f"{sid}_pm2_5") is not None  # NEW — was invisible
     assert _eid(hass, "sensor", f"{sid}_pm2_5_slope") is not None
-    assert _eid(hass, "sensor", f"{sid}_pm2_5_air_change_rate") is None  # ACH is CO₂-only
+    assert (
+        _eid(hass, "sensor", f"{sid}_pm2_5_air_change_rate") is None
+    )  # ACH is CO₂-only
     co2 = hass.states.get(_eid(hass, "sensor", f"{sid}_co2"))
     pm = hass.states.get(_eid(hass, "sensor", f"{sid}_pm2_5"))
     # "Managed <metric>" — not the bare "Zone", and never collides with a raw
@@ -107,31 +129,56 @@ async def test_migrate_legacy_entity_ids(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.z_co2", "700")
     hass.states.async_set("sensor.z_pm", "5")
     entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, data={},
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
                 data={
-                    CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000,
-                    CONF_METRICS: [{CONF_METRIC_KIND: "pm2_5", CONF_METRIC_SENSORS: ["sensor.z_pm"],
-                                    CONF_TIERS: [{CONF_TIER_ENGAGE: 30}]}],
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                    CONF_METRICS: [
+                        {
+                            CONF_METRIC_KIND: "pm2_5",
+                            CONF_METRIC_SENSORS: ["sensor.z_pm"],
+                            CONF_TIERS: [{CONF_TIER_ENGAGE: 30}],
+                        }
+                    ],
                 },
             ),
         ],
     )
     entry.add_to_hass(hass)
-    sid = next(s.subentry_id for s in entry.subentries.values() if s.subentry_type == "space")
+    sid = next(
+        s.subentry_id for s in entry.subentries.values() if s.subentry_type == "space"
+    )
     reg = er.async_get(hass)
     # Pre-seed the legacy (broken) entity_ids older builds left behind.
-    reg.async_get_or_create("sensor", DOMAIN, f"{sid}_pm2_5",
-                            suggested_object_id="zone_zone_pm2_5", config_entry=entry)
-    reg.async_get_or_create("sensor", DOMAIN, f"{sid}_co2",
-                            suggested_object_id="zone", config_entry=entry)
+    reg.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{sid}_pm2_5",
+        suggested_object_id="zone_zone_pm2_5",
+        config_entry=entry,
+    )
+    reg.async_get_or_create(
+        "sensor", DOMAIN, f"{sid}_co2", suggested_object_id="zone", config_entry=entry
+    )
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_pm2_5") == "sensor.zone_managed_pm2_5"
-    assert reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_co2") == "sensor.zone_managed_co2"
+    assert (
+        reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_pm2_5")
+        == "sensor.zone_managed_pm2_5"
+    )
+    assert (
+        reg.async_get_entity_id("sensor", DOMAIN, f"{sid}_co2")
+        == "sensor.zone_managed_co2"
+    )
 
 
 async def test_pm_value_surfaced(hass: HomeAssistant) -> None:
@@ -189,7 +236,9 @@ async def test_pm_threshold_number(hass: HomeAssistant) -> None:
     await hass.services.async_call(
         "number", "set_value", {"entity_id": eid, "value": 45}, blocking=True
     )
-    assert entry.runtime_data.engine.spaces[sid].metrics[pm_idx].tiers[0].engage_at == 45
+    assert (
+        entry.runtime_data.engine.spaces[sid].metrics[pm_idx].tiers[0].engage_at == 45
+    )
 
 
 async def test_manage_gate_monitor_only(hass: HomeAssistant) -> None:
@@ -205,8 +254,13 @@ async def test_manage_gate_monitor_only(hass: HomeAssistant) -> None:
     _drive_pm(hass, entry, sid, pm_idx, 60)
     await hass.async_block_till_done()
     assert eng.actuator_runtime(hood).commanded_setpoint == 0  # no demand
-    assert float(hass.states.get(_eid(hass, "sensor", f"{sid}_pm2_5")).state) == 60.0  # still shown
-    assert "monitoring only" in hass.states.get(_eid(hass, "sensor", f"{sid}_reason")).state
+    assert (
+        float(hass.states.get(_eid(hass, "sensor", f"{sid}_pm2_5")).state) == 60.0
+    )  # still shown
+    assert (
+        "monitoring only"
+        in hass.states.get(_eid(hass, "sensor", f"{sid}_reason")).state
+    )
 
     eng.set_metric_manage(sid, pm_idx, True)  # re-enable → demand returns
     _drive_pm(hass, entry, sid, pm_idx, 60)
@@ -252,7 +306,9 @@ async def test_reason_override_block(hass: HomeAssistant) -> None:
     entry, sid, hood, pm_idx = await _setup_co2_and_pm(hass)
     eng = entry.runtime_data.engine
     eng.spaces[sid].metrics[pm_idx].tiers[0].setpoints[hood] = 100
-    eng.actuator_runtime(hood).overridden_until = dt_util.utcnow() + timedelta(minutes=30)
+    eng.actuator_runtime(hood).overridden_until = dt_util.utcnow() + timedelta(
+        minutes=30
+    )
     _drive_pm(hass, entry, sid, pm_idx, 60)
     await hass.async_block_till_done()
     reason = hass.states.get(_eid(hass, "sensor", f"{sid}_reason")).state
@@ -288,7 +344,9 @@ async def test_diagnostics_dump(hass: HomeAssistant) -> None:
     assert diag["paused"] is False and diag["c_out_ppm"] == 420.0
     space = next(s for s in diag["spaces"] if s["subentry_id"] == sid)
     pm = next(m for m in space["metrics"] if m["kind"] == "pm2_5")
-    assert pm["tiers"] == [{"engage_at": 30.0, "release_at": 25.5, "setpoints": {"Hood": 40}}]
+    assert pm["tiers"] == [
+        {"engage_at": 30.0, "release_at": 25.5, "setpoints": {"Hood": 40}}
+    ]
     assert pm["sensors"] == ["sensor.z_pm"]  # real entity_ids, not redacted
     assert space["status"] in ("ok", "monitor", "mitigating", "attention")
     hood_d = next(a for a in diag["actuators"] if a["name"] == "Hood")
@@ -297,7 +355,7 @@ async def test_diagnostics_dump(hass: HomeAssistant) -> None:
 
 async def test_manage_switch_entity_toggles(hass: HomeAssistant) -> None:
     """FR-E9: enabling the Manage switch entity and toggling it gates the metric."""
-    entry, sid, hood, pm_idx = await _setup_co2_and_pm(hass)
+    entry, sid, _hood, pm_idx = await _setup_co2_and_pm(hass)
     registry = er.async_get(hass)
     uid = f"{sid}_manage_pm2_5"
     disabled_eid = registry.async_get_entity_id("switch", DOMAIN, uid)
@@ -309,7 +367,11 @@ async def test_manage_switch_entity_toggles(hass: HomeAssistant) -> None:
     eng = entry.runtime_data.engine
     eid = registry.async_get_entity_id("switch", DOMAIN, uid)
     assert hass.states.get(eid).state == "on"  # default: managed
-    await hass.services.async_call("switch", "turn_off", {"entity_id": eid}, blocking=True)
+    await hass.services.async_call(
+        "switch", "turn_off", {"entity_id": eid}, blocking=True
+    )
     assert eng.metric_manage(sid, pm_idx) is False
-    await hass.services.async_call("switch", "turn_on", {"entity_id": eid}, blocking=True)
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": eid}, blocking=True
+    )
     assert eng.metric_manage(sid, pm_idx) is True

@@ -42,7 +42,9 @@ async def async_setup_entry(
         if sub.subentry_type == SUBENTRY_TYPE_SPACE:
             _add_for_space(sub_id)
     entry.async_on_unload(
-        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+        async_dispatcher_connect(
+            hass, signal_space_added(entry.entry_id), _add_for_space
+        )
     )
 
 
@@ -87,7 +89,9 @@ class AeolusMitigationActiveBinarySensor(_SpaceBinarySensor):
     def extra_state_attributes(self) -> dict[str, object]:
         sid = self._space.subentry_id
         return {
-            "driving_metrics": [k.value for k in self._engine.space_driving_metrics(sid)],
+            "driving_metrics": [
+                k.value for k in self._engine.space_driving_metrics(sid)
+            ],
             "active_actuators": self._engine.space_active_actuator_names(sid),
             "reason": self._engine.space_reason(sid),
         }

@@ -16,7 +16,7 @@ sys.path.insert(
     0, str(Path(__file__).resolve().parents[1] / "custom_components" / "aeolus")
 )
 
-from ema import SlopeTracker, TimeAwareEMA  # noqa: E402
+from ema import SlopeTracker, TimeAwareEMA
 
 T0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 

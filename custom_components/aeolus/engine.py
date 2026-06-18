@@ -74,6 +74,7 @@ def _aggregate(values: list[float], aggregation: Aggregation) -> float:
         return (ordered[mid - 1] + ordered[mid]) / 2.0
     return sum(values) / len(values)  # MEAN
 
+
 _LOGGER = logging.getLogger(__name__)
 
 # How long to yield control after a detected manual override (FR-L7).
@@ -164,9 +165,13 @@ class ActuatorRuntime:
     commanded_setpoint: int = 0
     on_since: datetime | None = None
     last_change: datetime | None = None
-    last_command_sent: datetime | None = None  # last time a service fired (rearm cadence)
+    last_command_sent: datetime | None = (
+        None  # last time a service fired (rearm cadence)
+    )
     overridden_until: datetime | None = None
-    divergence_since: datetime | None = None  # state≠command since (override confirmation, FR-L7b)
+    divergence_since: datetime | None = (
+        None  # state≠command since (override confirmation, FR-L7b)
+    )
     aq_vetoed: bool = False  # last-seen outdoor-AQ veto state (for transition logging)
 
     @property
@@ -224,12 +229,14 @@ class AeolusEngine:
             if metric.kind is MetricKind.CO2:
                 primary = midx
             for sensor_id in metric.sensors:
-                self._sensor_to_metric.setdefault(sensor_id, []).append((space_id, midx))
+                self._sensor_to_metric.setdefault(sensor_id, []).append(
+                    (space_id, midx)
+                )
         self._runtime[space_id] = SpaceRuntime(metrics=mruns, primary=primary)
 
     def _init_actuator_runtime(self, act_id: str, act: Actuator) -> None:
         self._act_runtime[act_id] = ActuatorRuntime()
-        for entity_id in (act.entities or [act.entity_id]):
+        for entity_id in act.entities or [act.entity_id]:
             self._actuator_by_entity[entity_id] = act_id  # multi-entity (FR-P8)
 
     @callback
@@ -240,10 +247,14 @@ class AeolusEngine:
         self._source_unsubs.clear()
         if source_ids := list(self._sensor_to_metric):
             self._source_unsubs.append(
-                async_track_state_change_event(self.hass, source_ids, self._on_source_changed)
+                async_track_state_change_event(
+                    self.hass, source_ids, self._on_source_changed
+                )
             )
             self._source_unsubs.append(
-                async_track_state_report_event(self.hass, source_ids, self._on_source_reported)
+                async_track_state_report_event(
+                    self.hass, source_ids, self._on_source_reported
+                )
             )
 
     @callback
@@ -295,7 +306,11 @@ class AeolusEngine:
         self._resubscribe_sources()
         self._seed_sources([s for m in space.metrics for s in m.sensors])
         self._space_available[space_id] = self.space_available(space_id)
-        _LOGGER.info("Aeolus: Space '%s' added live (%d metric(s))", space.name, len(space.metrics))
+        _LOGGER.info(
+            "Aeolus: Space '%s' added live (%d metric(s))",
+            space.name,
+            len(space.metrics),
+        )
         self.request_evaluation()
 
     @callback
@@ -305,7 +320,11 @@ class AeolusEngine:
         self._runtime.pop(space_id, None)
         self._space_available.pop(space_id, None)
         for sensor_id in list(self._sensor_to_metric):
-            kept = [pair for pair in self._sensor_to_metric[sensor_id] if pair[0] != space_id]
+            kept = [
+                pair
+                for pair in self._sensor_to_metric[sensor_id]
+                if pair[0] != space_id
+            ]
             if kept:
                 self._sensor_to_metric[sensor_id] = kept
             else:
@@ -332,7 +351,7 @@ class AeolusEngine:
         act = self.actuators.pop(act_id, None)
         self._act_runtime.pop(act_id, None)
         if act is not None:
-            for entity_id in (act.entities or [act.entity_id]):
+            for entity_id in act.entities or [act.entity_id]:
                 self._actuator_by_entity.pop(entity_id, None)
         for space in self.spaces.values():
             for metric in space.metrics:
@@ -341,7 +360,9 @@ class AeolusEngine:
         self._resync_co2_setpoints()
         self._resubscribe_actuators()
         if act is not None:
-            _LOGGER.info("Aeolus: Actuator '%s' removed live and purged from all tiers", act.name)
+            _LOGGER.info(
+                "Aeolus: Actuator '%s' removed live and purged from all tiers", act.name
+            )
         self.request_evaluation()
 
     @callback
@@ -390,7 +411,9 @@ class AeolusEngine:
         self._ingest(new_state.entity_id, new_state.state, new_state.last_updated)
         # Availability fires on EVERY source change (incl. → unavailable), not
         # just numeric ones, so entities reflect source dropouts (entity-unavailable).
-        for space_id in {sid for sid, _ in self._sensor_to_metric.get(new_state.entity_id, ())}:
+        for space_id in {
+            sid for sid, _ in self._sensor_to_metric.get(new_state.entity_id, ())
+        }:
             self._refresh_availability(space_id)
 
     @callback
@@ -403,7 +426,9 @@ class AeolusEngine:
             self._evaluate(dt_util.utcnow())
 
     @callback
-    def _recompute_metric(self, space_id: str, midx: int, sensor_id: str, when: datetime) -> None:
+    def _recompute_metric(
+        self, space_id: str, midx: int, sensor_id: str, when: datetime
+    ) -> None:
         srt = self._runtime[space_id]
         if midx >= len(srt.metrics):
             return
@@ -422,7 +447,7 @@ class AeolusEngine:
         async_dispatcher_send(self.hass, signal_space_update(self.entry_id, space_id))
 
     def _read_metric_values(self, metric: Metric) -> list[float]:
-        """Current usable values of a metric's member sensors (range-guarded by kind)."""
+        """Current usable values of a metric's member sensors (range-guarded)."""
         lo, hi = (300.0, 40000.0) if metric.kind is MetricKind.CO2 else (0.0, 100000.0)
         out: list[float] = []
         for sensor_id in metric.sensors:
@@ -431,7 +456,7 @@ class AeolusEngine:
                 continue
             try:
                 value = float(state.state)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
             if lo <= value <= hi:
                 out.append(value)
@@ -450,7 +475,12 @@ class AeolusEngine:
         # Ignore non-terminal states: UNKNOWN/UNAVAILABLE, and a cover's transient
         # OPENING/CLOSING — which occur DURING Aeolus's own open/close command and
         # would otherwise read as "off" and self-trigger a false manual override.
-        if new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE, STATE_OPENING, STATE_CLOSING):
+        if new_state.state in (
+            STATE_UNKNOWN,
+            STATE_UNAVAILABLE,
+            STATE_OPENING,
+            STATE_CLOSING,
+        ):
             return
         actual_on = new_state.state in (STATE_ON, STATE_OPEN)
         act = self.actuators[act_id]
@@ -464,13 +494,16 @@ class AeolusEngine:
                 rt.overridden_until = now + OVERRIDE_WINDOW  # immediate (default)
                 _LOGGER.info(
                     "Aeolus: %s manually overridden — yielding control for %d min",
-                    act.name, OVERRIDE_WINDOW.total_seconds() // 60,
+                    act.name,
+                    OVERRIDE_WINDOW.total_seconds() // 60,
                 )
             elif rt.divergence_since is None:
                 rt.divergence_since = now  # start the clock; confirmed in _evaluate
         elif rt.divergence_since is not None:
             rt.divergence_since = None  # re-converged within grace → ignore the flap
-            _LOGGER.debug("Aeolus: %s re-converged within grace (flap ignored)", act.name)
+            _LOGGER.debug(
+                "Aeolus: %s re-converged within grace (flap ignored)", act.name
+            )
 
     def actuator_is_overridden(self, act_id: str, now: datetime) -> bool:
         until = self._act_runtime[act_id].overridden_until
@@ -505,13 +538,17 @@ class AeolusEngine:
             if crossing_on and elapsed < self.min_off:
                 _LOGGER.debug(
                     "Aeolus: %s on held by min-off (%ds of %ds elapsed)",
-                    act.name, elapsed.total_seconds(), self.min_off.total_seconds(),
+                    act.name,
+                    elapsed.total_seconds(),
+                    self.min_off.total_seconds(),
                 )
                 return
             if crossing_off and elapsed < self.min_on:
                 _LOGGER.debug(
                     "Aeolus: %s off held by min-on (%ds of %ds elapsed)",
-                    act.name, elapsed.total_seconds(), self.min_on.total_seconds(),
+                    act.name,
+                    elapsed.total_seconds(),
+                    self.min_on.total_seconds(),
                 )
                 return
         rt.commanded_setpoint = setpoint
@@ -543,7 +580,7 @@ class AeolusEngine:
         """Drive every entity of the actuator to `setpoint` and stamp the send time
         (FR-P7 variable drive, FR-P8 multi-entity group)."""
         self._act_runtime[act.subentry_id].last_command_sent = now
-        for entity_id in (act.entities or [act.entity_id]):
+        for entity_id in act.entities or [act.entity_id]:
             domain = entity_id.split(".", 1)[0]
             data: dict[str, int | str] = {"entity_id": entity_id}
             if domain == "cover":
@@ -557,7 +594,9 @@ class AeolusEngine:
                 # a full-on (100) or a switch is a plain turn_on.
                 if domain == "fan" and 0 < setpoint < 100:
                     data["percentage"] = setpoint
-            self.hass.async_create_task(self._async_call_service(service_domain, service, data))
+            self.hass.async_create_task(
+                self._async_call_service(service_domain, service, data)
+            )
 
     async def _async_call_service(
         self, domain: str, service: str, data: dict[str, int | str]
@@ -569,7 +608,10 @@ class AeolusEngine:
         except Exception as err:  # never let a failed command crash the control loop
             _LOGGER.warning(
                 "Aeolus: command %s.%s for %s failed: %s",
-                domain, service, data.get("entity_id"), err,
+                domain,
+                service,
+                data.get("entity_id"),
+                err,
             )
 
     # --- control tick ----------------------------------------------------
@@ -579,7 +621,9 @@ class AeolusEngine:
         # Refresh status/reason/mitigation entities each tick even absent a source
         # change, so explainability (FR-U2) and mitigation state track the controller.
         for space_id in self.spaces:
-            async_dispatcher_send(self.hass, signal_space_update(self.entry_id, space_id))
+            async_dispatcher_send(
+                self.hass, signal_space_update(self.entry_id, space_id)
+            )
 
     @callback
     def request_evaluation(self) -> None:
@@ -605,7 +649,9 @@ class AeolusEngine:
                 _LOGGER.info(
                     "Aeolus: %s override confirmed (divergence outlasted %s) — "
                     "yielding control for %d min",
-                    self.actuators[act_id].name, grace, OVERRIDE_WINDOW.total_seconds() // 60,
+                    self.actuators[act_id].name,
+                    grace,
+                    OVERRIDE_WINDOW.total_seconds() // 60,
                 )
 
     # --- availability (entity-unavailable / log-when-unavailable) --------
@@ -655,7 +701,9 @@ class AeolusEngine:
         m = srt.primary_metric if srt is not None else None
         if m is None or space is None or m.value is None or m.slope_per_min is None:
             return None
-        return time_to_target_min(m.value, space.target_ppm, m.slope_per_min * 60.0, m.floor)
+        return time_to_target_min(
+            m.value, space.target_ppm, m.slope_per_min * 60.0, m.floor
+        )
 
     # --- per-metric read API (FR-E5–E9 parity) ---------------------------
     def metric_runtime(self, space_id: str, midx: int) -> MetricRuntime | None:
@@ -727,7 +775,9 @@ class AeolusEngine:
                     "engage_at": tier.engage_at,
                     "release_at": tier.release_at,
                     "setpoints": {
-                        (self.actuators[aid].name if aid in self.actuators else aid): level
+                        (
+                            self.actuators[aid].name if aid in self.actuators else aid
+                        ): level
                         for aid, level in tier.setpoints.items()
                     },
                 }
@@ -768,7 +818,9 @@ class AeolusEngine:
     def _all_stale(self, srt: SpaceRuntime, now: datetime) -> bool:
         from .safety import is_stale
 
-        return bool(srt.metrics) and all(is_stale(m.member_seen, now) for m in srt.metrics)
+        return bool(srt.metrics) and all(
+            is_stale(m.member_seen, now) for m in srt.metrics
+        )
 
     def space_attention(self, space_id: str, now: datetime | None = None) -> bool:
         """True if ANY driven metric is stale, maxed-and-still-high, or elevated &
@@ -839,7 +891,10 @@ class AeolusEngine:
             if (mrt := srt.metrics[midx]).manage and mrt.active_tier >= 0
         ]
         if driving:
-            parts = [f"{METRIC_LABEL[m.kind]} tier {mrt.active_tier + 1}" for m, mrt in driving]
+            parts = [
+                f"{METRIC_LABEL[m.kind]} tier {mrt.active_tier + 1}"
+                for m, mrt in driving
+            ]
             acts = self.space_active_actuator_names(space_id)
             if acts:
                 return f"Mitigating {', '.join(parts)} → {', '.join(acts)}"
@@ -879,6 +934,10 @@ class AeolusEngine:
         for aid in act_ids:
             act = self.actuators.get(aid)
             art = self._act_runtime.get(aid)
-            if act is not None and art is not None and max_runtime_exceeded(art, act, now):
+            if (
+                act is not None
+                and art is not None
+                and max_runtime_exceeded(art, act, now)
+            ):
                 return "runtime cap reached"
         return None

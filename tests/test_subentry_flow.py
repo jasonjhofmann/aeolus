@@ -67,7 +67,11 @@ async def test_reconfigure_space_subentry(hass: HomeAssistant) -> None:
                 subentry_type="space",
                 title="Office",
                 unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.o"], "target_ppm": 800, "high_ppm": 1000},
+                data={
+                    CONF_CO2_SENSORS: ["sensor.o"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             )
         ],
     )
@@ -107,7 +111,9 @@ async def test_reconfigure_actuator_subentry(hass: HomeAssistant) -> None:
         ],
     )
     sub_id = next(
-        s.subentry_id for s in entry.subentries.values() if s.subentry_type == "actuator"
+        s.subentry_id
+        for s in entry.subentries.values()
+        if s.subentry_type == "actuator"
     )
     result = await hass.config_entries.subentries.async_init(
         (entry.entry_id, "actuator"),

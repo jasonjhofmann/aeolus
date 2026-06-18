@@ -46,7 +46,9 @@ def _build_space_numbers(engine: AeolusEngine, space: Space) -> list[NumberEntit
         if metric.kind is MetricKind.CO2:
             numbers.append(AeolusTargetNumber(engine, space))
         elif metric.tiers:  # FR-E7: a threshold control per other driven metric
-            numbers.append(AeolusMetricThresholdNumber(engine, space, midx, metric.kind))
+            numbers.append(
+                AeolusMetricThresholdNumber(engine, space, midx, metric.kind)
+            )
     return numbers
 
 
@@ -61,13 +63,17 @@ async def async_setup_entry(
     def _add_for_space(sub_id: str) -> None:
         space = engine.spaces.get(sub_id)
         if space is not None:
-            async_add_entities(_build_space_numbers(engine, space), config_subentry_id=sub_id)
+            async_add_entities(
+                _build_space_numbers(engine, space), config_subentry_id=sub_id
+            )
 
     for sub_id, sub in entry.subentries.items():
         if sub.subentry_type == SUBENTRY_TYPE_SPACE:
             _add_for_space(sub_id)
     entry.async_on_unload(
-        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+        async_dispatcher_connect(
+            hass, signal_space_added(entry.entry_id), _add_for_space
+        )
     )
 
 
@@ -109,7 +115,9 @@ class AeolusMetricThresholdNumber(AeolusSpaceEntity, NumberEntity):
     _attr_native_min_value = 0
     _attr_native_step = 1
 
-    def __init__(self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind) -> None:
+    def __init__(
+        self, engine: AeolusEngine, space: Space, midx: int, kind: MetricKind
+    ) -> None:
         super().__init__(engine, space)
         self._midx = midx
         self._kind = kind

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Tooling: declare Python **3.14** as the supported floor (`requires-python>=3.14`,
+  ruff `target-version=py314`, mypy `python_version=3.14`) to match Home Assistant's
+  minimum runtime; allow intentional domain glyphs (`×`, `–`, `−`, `α`) via ruff
+  `allowed-confusables`; ran `ruff format` and cleared all `ruff check` findings.
+  No runtime behavior change.
+
 ## [0.5.0] - 2026-06-17
 
 ### Added — Platinum quality scale (2026-06-17)

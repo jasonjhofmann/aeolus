@@ -32,11 +32,19 @@ async def test_cover_actuator_command_branch(hass: HomeAssistant) -> None:
         data={},
         subentries_data=[
             ConfigSubentryData(
-                subentry_type="space", title="Zone", unique_id=None,
-                data={CONF_CO2_SENSORS: ["sensor.z_co2"], "target_ppm": 800, "high_ppm": 1000},
+                subentry_type="space",
+                title="Zone",
+                unique_id=None,
+                data={
+                    CONF_CO2_SENSORS: ["sensor.z_co2"],
+                    "target_ppm": 800,
+                    "high_ppm": 1000,
+                },
             ),
             ConfigSubentryData(
-                subentry_type="actuator", title="Window", unique_id=None,
+                subentry_type="actuator",
+                title="Window",
+                unique_id=None,
                 data={CONF_ACTUATOR_ENTITY: COVER, "mechanism": "window"},
             ),
         ],

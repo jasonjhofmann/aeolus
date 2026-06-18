@@ -1,20 +1,25 @@
 [project]
 name = "aeolus"
-version = "0.4.0"
+version = "0.5.0"
 description = "Adaptive, multi-zone CO2 & ventilation manager for Home Assistant"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.13"
+# Home Assistant's minimum runtime is Python 3.14, so that is the supported floor.
+requires-python = ">=3.14"
 
 [tool.ruff]
-target-version = "py313"
+# target-version = the OLDEST supported Python (the floor), per the ruff docs.
+target-version = "py314"
 line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+# Domain notation that is intentional, not a typo: × (multiplication), – (en dash),
+# − (minus), α (EMA smoothing factor). Keep them legible instead of ASCII-mangling.
+allowed-confusables = ["×", "–", "−", "α"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 warn_unused_ignores = true
 

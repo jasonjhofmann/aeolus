@@ -68,7 +68,9 @@ async def test_options_flow_enables_ladder_toggle(hass: HomeAssistant) -> None:
     assert CONF_ADD_GRADUATED in _space_form_keys(result)
 
 
-async def test_disabling_ladders_preserves_existing_metrics(hass: HomeAssistant) -> None:
+async def test_disabling_ladders_preserves_existing_metrics(
+    hass: HomeAssistant,
+) -> None:
     """A Space that already has a ladder keeps it when reconfigured with the
     feature turned off (the toggle is hidden, metrics carry forward)."""
     metric = {
@@ -97,7 +99,8 @@ async def test_disabling_ladders_preserves_existing_metrics(hass: HomeAssistant)
         ],
     )
     sub_id = next(
-        s.subentry_id for s in entry.subentries.values()
+        s.subentry_id
+        for s in entry.subentries.values()
         if s.subentry_type == SUBENTRY_TYPE_SPACE
     )
 
