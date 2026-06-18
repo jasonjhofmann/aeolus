@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-06-17
+
+### Added
+- **Continuous Integration** (`.github/workflows/ci.yml` + `validate.yml`) — the release
+  safety net that was missing when v0.5.1 shipped an import break. On every push/PR:
+  - **lint** — `ruff check` + `ruff format --check` + `mypy --strict` (Python 3.14);
+  - **syntax-floor** — compiles the package on **Python 3.13** (the support floor), so a
+    3.14-only construct (the v0.5.1 `except A, B:` regression) fails in CI instead of on a
+    user's HA 2025.4 install;
+  - **test** — the full suite on a **Python 3.13 + 3.14 matrix** with a 90% coverage gate
+    (currently 96%);
+  - **hassfest** + **HACS** validation.
+- `requirements_test.txt` for local test/dev parity.
+
+(Infrastructure only — no change to the shipped integration code or behavior.)
+
 ## [0.5.2] - 2026-06-17
 
 ### Fixed

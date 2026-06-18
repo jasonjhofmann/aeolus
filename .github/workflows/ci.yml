@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  lint:
+    name: Lint + type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Ruff (lint)
+        run: uv run --python 3.14 --with ruff ruff check custom_components/ tests/
+
+      - name: Ruff (format check)
+        run: uv run --python 3.14 --with ruff ruff format --check custom_components/ tests/
+
+      # Aeolus has no runtime dependency; it imports homeassistant + voluptuous.
+      - name: Mypy (strict)
+        run: |
+          uv run --python 3.14 \
+            --with mypy \
+            --with homeassistant \
+            --with voluptuous \
+            mypy custom_components/aeolus/
+
+  # Guards the declared support floor (hacs.json + manifest homeassistant: 2025.4.0
+  # = Python 3.13). A 3.14-only construct slipping in — e.g. an unparenthesized
+  # `except A, B:` (PEP 758), which broke v0.5.1 — fails here as a SyntaxError in CI
+  # instead of on a user's HA 2025.4–2025.12 install where the integration won't load.
+  syntax-floor:
+    name: Syntax floor (Python 3.13)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Compile on Python 3.13 (support floor)
+        run: uv run --python 3.13 --no-project python -m compileall -q custom_components/
+
+  test:
+    name: Pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.13 = the support floor (resolves a floor-era HA); 3.14 = current.
+        python-version: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Pytest (with coverage gate)
+        run: |
+          uv run --python ${{ matrix.python-version }} \
+            --with pytest-homeassistant-custom-component \
+            --with pytest-cov \
+            python -m pytest tests/ -q \
+              --cov=custom_components.aeolus \
+              --cov-report=term-missing \
+              --cov-fail-under=90

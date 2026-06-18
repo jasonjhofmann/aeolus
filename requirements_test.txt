@@ -1,0 +1,10 @@
+# Test/dev-only dependencies. Aeolus has NO runtime requirements (manifest.json
+# `requirements: []`); pytest-homeassistant-custom-component pulls in a pinned
+# Home Assistant + pytest + pytest-asyncio. CI installs these per-job via `uv run
+# --with ...` (see .github/workflows/ci.yml); this file is for local parity:
+#   uv venv ~/venvs/aeolus --python 3.14
+#   VIRTUAL_ENV=~/venvs/aeolus uv pip install -r requirements_test.txt
+mypy
+pytest-cov
+pytest-homeassistant-custom-component
+ruff
