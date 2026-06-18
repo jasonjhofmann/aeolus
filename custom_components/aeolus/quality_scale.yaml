@@ -8,7 +8,13 @@ rules:
     comment: |
       Push-based calculated helper; derives state from source-entity events
       and does not poll.
-  brands: todo
+  brands:
+    status: done
+    comment: |
+      Satisfied by the in-package custom_components/aeolus/brand/ folder
+      (icon/logo + @2x + dark variants). Do NOT submit a home-assistant/brands
+      PR — as of HA 2026.3.0 that repo auto-closes new custom-integration PRs;
+      custom integrations ship brand assets in-tree (served via the Brands Proxy).
   common-modules: done
   config-flow: done
   config-flow-test-coverage: done
