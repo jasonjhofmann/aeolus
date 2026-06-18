@@ -167,6 +167,7 @@ class ActuatorRuntime:
     last_command_sent: datetime | None = None  # last time a service fired (rearm cadence)
     overridden_until: datetime | None = None
     divergence_since: datetime | None = None  # state≠command since (override confirmation, FR-L7b)
+    aq_vetoed: bool = False  # last-seen outdoor-AQ veto state (for transition logging)
 
     @property
     def commanded_on(self) -> bool:

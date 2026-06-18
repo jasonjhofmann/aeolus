@@ -70,9 +70,26 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
         srt.mitigating = active
 
     for act_id, act in engine.actuators.items():
+        art = engine.actuator_runtime(act_id)
+        # Log outdoor-AQ veto engage/clear once per transition — the key
+        # "why didn't it ventilate" signal, otherwise silent.
+        if art is not None:
+            vetoed = any(
+                inf.space_id in engine.spaces
+                and outdoor_air_vetoed(engine.hass, act, engine.spaces[inf.space_id])
+                for inf in act.influences
+            )
+            if vetoed != art.aq_vetoed:
+                art.aq_vetoed = vetoed
+                if vetoed:
+                    _LOGGER.warning(
+                        "Aeolus: %s outdoor-AQ veto engaged — outdoor PM over threshold; "
+                        "ventilation via this pathway suspended", act.name,
+                    )
+                else:
+                    _LOGGER.info("Aeolus: %s outdoor-AQ veto cleared", act.name)
         if engine.actuator_is_overridden(act_id, now):
             continue  # yield to the human/automation (FR-L7)
-        art = engine.actuator_runtime(act_id)
         setpoint = desired[act_id]
         if (
             setpoint > 0
