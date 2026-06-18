@@ -29,7 +29,7 @@ from .const import (
     SUBENTRY_TYPE_SPACE,
     MetricKind,
 )
-from .engine import AeolusEngine, signal_space_update
+from .engine import AeolusEngine, signal_space_added, signal_space_update
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
 
@@ -47,29 +47,43 @@ _METRIC_DEVICE_CLASS: dict[MetricKind, SensorDeviceClass | None] = {
 }
 
 
+def _build_space_sensors(engine: AeolusEngine, space: Space) -> list[SensorEntity]:
+    """The per-metric value + slope sensors (+ ACH for CO₂) and the reason sensor."""
+    primary = engine.space_runtime(space.subentry_id)
+    primary_idx = primary.primary if primary is not None else 0
+    entities: list[SensorEntity] = []
+    for midx, metric in enumerate(space.metrics):
+        is_primary = midx == primary_idx
+        entities.append(AeolusMetricValueSensor(engine, space, midx, metric.kind, is_primary))
+        entities.append(AeolusMetricSlopeSensor(engine, space, midx, metric.kind))
+        if metric.kind is MetricKind.CO2:
+            entities.append(AeolusAchSensor(engine, space, midx))
+    entities.append(AeolusReasonSensor(engine, space))
+    return entities
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: AeolusConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Create per-metric value + slope sensors (+ ACH for CO₂) per Space, plus a
-    per-Space reason sensor."""
+    per-Space reason sensor — for existing Spaces and any added later
+    (dynamic-devices)."""
     engine = entry.runtime_data.engine
+
+    @callback
+    def _add_for_space(sub_id: str) -> None:
+        space = engine.spaces.get(sub_id)
+        if space is not None:
+            async_add_entities(_build_space_sensors(engine, space), config_subentry_id=sub_id)
+
     for sub_id, sub in entry.subentries.items():
-        if sub.subentry_type != SUBENTRY_TYPE_SPACE:
-            continue
-        space = engine.spaces[sub_id]
-        primary = engine.space_runtime(sub_id)
-        primary_idx = primary.primary if primary is not None else 0
-        entities: list[SensorEntity] = []
-        for midx, metric in enumerate(space.metrics):
-            is_primary = midx == primary_idx
-            entities.append(AeolusMetricValueSensor(engine, space, midx, metric.kind, is_primary))
-            entities.append(AeolusMetricSlopeSensor(engine, space, midx, metric.kind))
-            if metric.kind is MetricKind.CO2:
-                entities.append(AeolusAchSensor(engine, space, midx))
-        entities.append(AeolusReasonSensor(engine, space))
-        async_add_entities(entities, config_subentry_id=sub_id)
+        if sub.subentry_type == SUBENTRY_TYPE_SPACE:
+            _add_for_space(sub_id)
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+    )
 
 
 class _SpaceUpdateSensor(AeolusSpaceEntity, SensorEntity):

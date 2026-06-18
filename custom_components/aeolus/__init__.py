@@ -13,8 +13,10 @@ from typing import Any
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
@@ -54,7 +56,7 @@ from .const import (
     Mechanism,
     MetricKind,
 )
-from .engine import AeolusEngine
+from .engine import AeolusEngine, signal_space_added
 from .models import (
     Actuator,
     AeolusConfigEntry,
@@ -89,9 +91,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bo
     entry.runtime_data = AeolusData(engine=engine)
     engine.async_start()
     entry.async_on_unload(engine.async_stop)
-    # Reload when a Space/Actuator subentry is added or reconfigured, so threshold/
-    # actuator edits take effect immediately instead of only at the next restart.
-    entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
+    # Handle subentry changes live: a newly-added Space/Actuator is brought online
+    # without a reload (dynamic-devices), a removed one is dropped (stale-devices),
+    # and a reconfigure of an existing subentry reloads so its edited data re-parses.
+    entry.async_on_unload(entry.add_update_listener(_async_handle_subentry_change))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -174,9 +177,52 @@ def _async_sync_missing_entity_issues(
             ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
-async def _async_reload_on_update(hass: HomeAssistant, entry: AeolusConfigEntry) -> None:
-    """Re-parse subentries by reloading the entry (config/subentry changed)."""
-    await hass.config_entries.async_reload(entry.entry_id)
+async def _async_handle_subentry_change(
+    hass: HomeAssistant, entry: AeolusConfigEntry
+) -> None:
+    """Route a subentry change: add/remove are applied live; a reconfigure reloads.
+
+    HA fires the entry update listener for subentry add, update, AND remove. We diff
+    the parsed subentries against what the engine already knows: a structural change
+    (added/removed ids) is applied to the running engine without a reload
+    (dynamic-devices / stale-devices); a pure reconfigure (same id set, changed data)
+    reloads so the edited data re-parses (reconfiguration-flow)."""
+    engine = entry.runtime_data.engine
+    spaces, actuators = _parse_subentries(entry)
+
+    added_space_ids = spaces.keys() - engine.spaces.keys()
+    removed_space_ids = engine.spaces.keys() - spaces.keys()
+    added_act_ids = actuators.keys() - engine.actuators.keys()
+    removed_act_ids = engine.actuators.keys() - actuators.keys()
+
+    if not (added_space_ids or removed_space_ids or added_act_ids or removed_act_ids):
+        # Pure reconfigure of existing subentries → reload to re-parse the new data.
+        await hass.config_entries.async_reload(entry.entry_id)
+        return
+
+    # Removals first (so a re-add can't collide), then additions.
+    for act_id in removed_act_ids:
+        engine.remove_actuator(act_id)
+    for space_id in removed_space_ids:
+        engine.remove_space(space_id)
+    for act_id in added_act_ids:
+        engine.add_actuator(actuators[act_id])
+    for space_id in added_space_ids:
+        engine.add_space(spaces[space_id])
+        async_dispatcher_send(hass, signal_space_added(entry.entry_id), space_id)
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: AeolusConfigEntry, device: dr.DeviceEntry
+) -> bool:
+    """Allow deleting an orphaned Aeolus device from the UI (stale-devices).
+
+    The manager device and any live Space device (whose subentry still exists) are
+    protected; only a device whose backing subentry is gone may be removed."""
+    own_ids = {ident for domain, ident in device.identifiers if domain == DOMAIN}
+    if entry.entry_id in own_ids:  # the manager device
+        return False
+    return not any(sub_id in entry.subentries for sub_id in own_ids)
 
 
 # The Aeolus *measurement* sensors (a metric value, its slope, the CO₂ ACH) are

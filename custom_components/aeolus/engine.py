@@ -83,6 +83,13 @@ def signal_space_update(entry_id: str, space_id: str) -> str:
     return f"{DOMAIN}_{entry_id}_space_{space_id}"
 
 
+def signal_space_added(entry_id: str) -> str:
+    """Dispatcher signal carrying a newly-added Space subentry_id, so each platform
+    can create that Space's entities live — without reloading the entry
+    (dynamic-devices)."""
+    return f"{DOMAIN}_{entry_id}_space_added"
+
+
 @dataclass(slots=True)
 class MetricRuntime:
     """Live derived state for ONE metric of a Space (FR-P/FR-T)."""
@@ -190,52 +197,84 @@ class AeolusEngine:
         # sensor_id → [(space_id, metric_index)] it feeds (FR-P).
         self._sensor_to_metric: dict[str, list[tuple[str, int]]] = {}
         self._actuator_by_entity: dict[str, str] = {}
+        # Source/actuator state-tracking subscriptions are re-established whenever a
+        # Space/Actuator is added or removed at runtime (dynamic-devices); the control
+        # tick lives in _unsubs and is set up once.
         self._unsubs: list[Callable[[], None]] = []
+        self._source_unsubs: list[Callable[[], None]] = []
+        self._actuator_unsub: Callable[[], None] | None = None
 
     # --- lifecycle -------------------------------------------------------
+    def _init_space_runtime(self, space_id: str, space: Space) -> None:
+        """Build the per-Space derived-state runtime and index its source sensors."""
+        mruns: list[MetricRuntime] = []
+        primary = 0
+        for midx, metric in enumerate(space.metrics):
+            mruns.append(
+                MetricRuntime(
+                    kind=metric.kind,
+                    ema=TimeAwareEMA(DEFAULT_HALFLIFE_SEC, max_alpha=DEFAULT_MAX_ALPHA),
+                    slope=SlopeTracker(smoothing_halflife_sec=DEFAULT_HALFLIFE_SEC),
+                    floor=METRIC_FLOOR.get(metric.kind, 0.0),
+                )
+            )
+            if metric.kind is MetricKind.CO2:
+                primary = midx
+            for sensor_id in metric.sensors:
+                self._sensor_to_metric.setdefault(sensor_id, []).append((space_id, midx))
+        self._runtime[space_id] = SpaceRuntime(metrics=mruns, primary=primary)
+
+    def _init_actuator_runtime(self, act_id: str, act: Actuator) -> None:
+        self._act_runtime[act_id] = ActuatorRuntime()
+        for entity_id in (act.entities or [act.entity_id]):
+            self._actuator_by_entity[entity_id] = act_id  # multi-entity (FR-P8)
+
+    @callback
+    def _resubscribe_sources(self) -> None:
+        """(Re)subscribe to the current set of source sensors (dynamic-devices)."""
+        for unsub in self._source_unsubs:
+            unsub()
+        self._source_unsubs.clear()
+        if source_ids := list(self._sensor_to_metric):
+            self._source_unsubs.append(
+                async_track_state_change_event(self.hass, source_ids, self._on_source_changed)
+            )
+            self._source_unsubs.append(
+                async_track_state_report_event(self.hass, source_ids, self._on_source_reported)
+            )
+
+    @callback
+    def _resubscribe_actuators(self) -> None:
+        """(Re)subscribe to the current set of actuator entities (dynamic-devices)."""
+        if self._actuator_unsub is not None:
+            self._actuator_unsub()
+            self._actuator_unsub = None
+        if actuator_ids := list(self._actuator_by_entity):
+            self._actuator_unsub = async_track_state_change_event(
+                self.hass, actuator_ids, self._on_actuator_event
+            )
+
+    @callback
+    def _seed_sources(self, sensor_ids: list[str]) -> None:
+        """Ingest the current state of the given source sensors (initial seed)."""
+        for sensor_id in sensor_ids:
+            if (state := self.hass.states.get(sensor_id)) is not None:
+                self._ingest(sensor_id, state.state, state.last_updated)
+
     @callback
     def async_start(self) -> None:
         for space_id, space in self.spaces.items():
-            mruns: list[MetricRuntime] = []
-            primary = 0
-            for midx, metric in enumerate(space.metrics):
-                mruns.append(
-                    MetricRuntime(
-                        kind=metric.kind,
-                        ema=TimeAwareEMA(DEFAULT_HALFLIFE_SEC, max_alpha=DEFAULT_MAX_ALPHA),
-                        slope=SlopeTracker(smoothing_halflife_sec=DEFAULT_HALFLIFE_SEC),
-                        floor=METRIC_FLOOR.get(metric.kind, 0.0),
-                    )
-                )
-                if metric.kind is MetricKind.CO2:
-                    primary = midx
-                for sensor_id in metric.sensors:
-                    self._sensor_to_metric.setdefault(sensor_id, []).append((space_id, midx))
-            self._runtime[space_id] = SpaceRuntime(metrics=mruns, primary=primary)
-
+            self._init_space_runtime(space_id, space)
         for act_id, act in self.actuators.items():
-            self._act_runtime[act_id] = ActuatorRuntime()
-            for entity_id in (act.entities or [act.entity_id]):
-                self._actuator_by_entity[entity_id] = act_id  # multi-entity (FR-P8)
+            self._init_actuator_runtime(act_id, act)
 
-        if source_ids := list(self._sensor_to_metric):
-            self._unsubs.append(
-                async_track_state_change_event(self.hass, source_ids, self._on_source_changed)
-            )
-            self._unsubs.append(
-                async_track_state_report_event(self.hass, source_ids, self._on_source_reported)
-            )
-            for sensor_id in source_ids:
-                if (state := self.hass.states.get(sensor_id)) is not None:
-                    self._ingest(sensor_id, state.state, state.last_updated)
+        self._resubscribe_sources()
+        self._seed_sources(list(self._sensor_to_metric))
 
         for space_id in self.spaces:
             self._space_available[space_id] = self.space_available(space_id)
 
-        if actuator_ids := list(self._actuator_by_entity):
-            self._unsubs.append(
-                async_track_state_change_event(self.hass, actuator_ids, self._on_actuator_event)
-            )
+        self._resubscribe_actuators()
 
         self._unsubs.append(
             async_track_time_interval(
@@ -243,11 +282,86 @@ class AeolusEngine:
             )
         )
 
+    # --- dynamic add/remove (dynamic-devices, stale-devices) -------------
+    @callback
+    def add_space(self, space: Space) -> None:
+        """Bring a newly-added Space subentry online without reloading the entry."""
+        space_id = space.subentry_id
+        self.spaces[space_id] = space
+        self._init_space_runtime(space_id, space)
+        self._resubscribe_sources()
+        self._seed_sources([s for m in space.metrics for s in m.sensors])
+        self._space_available[space_id] = self.space_available(space_id)
+        self.request_evaluation()
+
+    @callback
+    def remove_space(self, space_id: str) -> None:
+        """Drop a removed Space subentry (its device/entities are cleared by HA)."""
+        self.spaces.pop(space_id, None)
+        self._runtime.pop(space_id, None)
+        self._space_available.pop(space_id, None)
+        for sensor_id in list(self._sensor_to_metric):
+            kept = [pair for pair in self._sensor_to_metric[sensor_id] if pair[0] != space_id]
+            if kept:
+                self._sensor_to_metric[sensor_id] = kept
+            else:
+                del self._sensor_to_metric[sensor_id]
+        self._resubscribe_sources()
+        self.request_evaluation()
+
+    @callback
+    def add_actuator(self, act: Actuator) -> None:
+        """Bring a newly-added Actuator subentry online; wire it into the CO₂ tiers
+        of the Spaces it serves (the synthesized-setpoint cross-coupling)."""
+        self.actuators[act.subentry_id] = act
+        self._init_actuator_runtime(act.subentry_id, act)
+        self._resubscribe_actuators()
+        self._resync_co2_setpoints()
+        self.request_evaluation()
+
+    @callback
+    def remove_actuator(self, act_id: str) -> None:
+        """Drop a removed Actuator subentry and purge it from every tier setpoint."""
+        act = self.actuators.pop(act_id, None)
+        self._act_runtime.pop(act_id, None)
+        if act is not None:
+            for entity_id in (act.entities or [act.entity_id]):
+                self._actuator_by_entity.pop(entity_id, None)
+        for space in self.spaces.values():
+            for metric in space.metrics:
+                for tier in metric.tiers:
+                    tier.setpoints.pop(act_id, None)
+        self._resync_co2_setpoints()
+        self._resubscribe_actuators()
+        self.request_evaluation()
+
+    @callback
+    def _resync_co2_setpoints(self) -> None:
+        """Rebuild every Space's synthesized CO₂-tier setpoints from the actuators
+        currently serving it. Mirrors __init__._build_metrics; the CO₂ ladder is
+        synthesized (not user-authored), so it is safe to rewrite wholesale."""
+        for space in self.spaces.values():
+            setpoints = {
+                aid: (act.on_speed_pct or 100)
+                for aid, act in self.actuators.items()
+                if any(inf.space_id == space.subentry_id for inf in act.influences)
+            }
+            for metric in space.metrics:
+                if metric.kind is MetricKind.CO2:
+                    for tier in metric.tiers:
+                        tier.setpoints = dict(setpoints)
+
     @callback
     def async_stop(self) -> None:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+        for unsub in self._source_unsubs:
+            unsub()
+        self._source_unsubs.clear()
+        if self._actuator_unsub is not None:
+            self._actuator_unsub()
+            self._actuator_unsub = None
 
     # --- source ingest ---------------------------------------------------
     @callback

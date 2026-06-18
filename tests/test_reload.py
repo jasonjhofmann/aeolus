@@ -1,4 +1,5 @@
-"""Reconfiguring a subentry reloads the engine (thresholds take effect live)."""
+"""Reconfiguring an existing subentry (same id set) reloads the engine, so its
+edited data re-parses and takes effect live."""
 
 from __future__ import annotations
 
@@ -6,11 +7,11 @@ from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aeolus import _async_reload_on_update
+from custom_components.aeolus import _async_handle_subentry_change
 from custom_components.aeolus.const import CONF_CO2_SENSORS, DOMAIN
 
 
-async def test_update_listener_reloads_engine(hass: HomeAssistant) -> None:
+async def test_reconfigure_reloads_engine(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.z_co2", "650")
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id=DOMAIN, data={},
@@ -26,7 +27,8 @@ async def test_update_listener_reloads_engine(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
     engine_before = entry.runtime_data.engine
 
-    await _async_reload_on_update(hass, entry)
+    # Same subentry id set as the engine knows → a pure reconfigure → reload.
+    await _async_handle_subentry_change(hass, entry)
     await hass.async_block_till_done()
 
     # Reload replaces the engine instance → fresh re-parse of subentries.

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import STATE_OFF, EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN, SUBENTRY_TYPE_SPACE, MetricKind
-from .engine import AeolusEngine
+from .engine import AeolusEngine, signal_space_added
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
 
@@ -25,14 +26,14 @@ async def async_setup_entry(
     engine = entry.runtime_data.engine
     # One master switch, attached to the Aeolus manager device (parent entry).
     async_add_entities([AeolusMasterSwitch(engine, entry.entry_id)])
+
     # Per-metric Manage gates — only when a Space drives >1 metric (FR-E9); the
     # single-metric common case keeps just the master Mode select.
-    for sub_id, sub in entry.subentries.items():
-        if sub.subentry_type != SUBENTRY_TYPE_SPACE:
-            continue
-        space = engine.spaces[sub_id]
-        if len(space.metrics) < 2:
-            continue
+    @callback
+    def _add_for_space(sub_id: str) -> None:
+        space = engine.spaces.get(sub_id)
+        if space is None or len(space.metrics) < 2:
+            return
         async_add_entities(
             [
                 AeolusMetricManageSwitch(engine, space, midx, metric.kind)
@@ -41,11 +42,19 @@ async def async_setup_entry(
             config_subentry_id=sub_id,
         )
 
+    for sub_id, sub in entry.subentries.items():
+        if sub.subentry_type == SUBENTRY_TYPE_SPACE:
+            _add_for_space(sub_id)
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+    )
+
 
 class AeolusMasterSwitch(SwitchEntity, RestoreEntity):
     """When off, the controller stops commanding actuators (devices left as-is)."""
 
     _attr_has_entity_name = True
+    _attr_should_poll = False
     _attr_translation_key = "management"
     _attr_entity_category = EntityCategory.CONFIG
 

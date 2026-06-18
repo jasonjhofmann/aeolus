@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import SUBENTRY_TYPE_SPACE, SpaceMode
-from .engine import AeolusEngine
+from .engine import AeolusEngine, signal_space_added
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
 
@@ -22,13 +23,19 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     engine = entry.runtime_data.engine
+
+    @callback
+    def _add_for_space(sub_id: str) -> None:
+        space = engine.spaces.get(sub_id)
+        if space is not None:
+            async_add_entities([AeolusModeSelect(engine, space)], config_subentry_id=sub_id)
+
     for sub_id, sub in entry.subentries.items():
-        if sub.subentry_type != SUBENTRY_TYPE_SPACE:
-            continue
-        async_add_entities(
-            [AeolusModeSelect(engine, engine.spaces[sub_id])],
-            config_subentry_id=sub_id,
-        )
+        if sub.subentry_type == SUBENTRY_TYPE_SPACE:
+            _add_for_space(sub_id)
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+    )
 
 
 class AeolusModeSelect(AeolusSpaceEntity, SelectEntity, RestoreEntity):

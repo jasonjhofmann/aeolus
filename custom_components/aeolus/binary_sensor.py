@@ -6,13 +6,13 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import SUBENTRY_TYPE_SPACE
-from .engine import AeolusEngine, signal_space_update
+from .engine import AeolusEngine, signal_space_added, signal_space_update
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
 
@@ -25,17 +25,25 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     engine = entry.runtime_data.engine
+
+    @callback
+    def _add_for_space(sub_id: str) -> None:
+        space = engine.spaces.get(sub_id)
+        if space is not None:
+            async_add_entities(
+                [
+                    AeolusMitigationActiveBinarySensor(engine, space),
+                    AeolusAttentionBinarySensor(engine, space),
+                ],
+                config_subentry_id=sub_id,
+            )
+
     for sub_id, sub in entry.subentries.items():
-        if sub.subentry_type != SUBENTRY_TYPE_SPACE:
-            continue
-        space = engine.spaces[sub_id]
-        async_add_entities(
-            [
-                AeolusMitigationActiveBinarySensor(engine, space),
-                AeolusAttentionBinarySensor(engine, space),
-            ],
-            config_subentry_id=sub_id,
-        )
+        if sub.subentry_type == SUBENTRY_TYPE_SPACE:
+            _add_for_space(sub_id)
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+    )
 
 
 class _SpaceBinarySensor(AeolusSpaceEntity, BinarySensorEntity):

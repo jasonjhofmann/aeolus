@@ -14,7 +14,8 @@ from homeassistant.components.number import (
     NumberMode,
 )
 from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
@@ -23,7 +24,7 @@ from .const import (
     SUBENTRY_TYPE_SPACE,
     MetricKind,
 )
-from .engine import AeolusEngine
+from .engine import AeolusEngine, signal_space_added
 from .entity import AeolusSpaceEntity
 from .models import AeolusConfigEntry, Space
 
@@ -38,23 +39,36 @@ _METRIC_DEVICE_CLASS: dict[MetricKind, NumberDeviceClass | None] = {
 }
 
 
+def _build_space_numbers(engine: AeolusEngine, space: Space) -> list[NumberEntity]:
+    """The CO₂ Target number plus a tier-1 threshold number per non-CO₂ metric."""
+    numbers: list[NumberEntity] = []
+    for midx, metric in enumerate(space.metrics):
+        if metric.kind is MetricKind.CO2:
+            numbers.append(AeolusTargetNumber(engine, space))
+        elif metric.tiers:  # FR-E7: a threshold control per other driven metric
+            numbers.append(AeolusMetricThresholdNumber(engine, space, midx, metric.kind))
+    return numbers
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: AeolusConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     engine = entry.runtime_data.engine
+
+    @callback
+    def _add_for_space(sub_id: str) -> None:
+        space = engine.spaces.get(sub_id)
+        if space is not None:
+            async_add_entities(_build_space_numbers(engine, space), config_subentry_id=sub_id)
+
     for sub_id, sub in entry.subentries.items():
-        if sub.subentry_type != SUBENTRY_TYPE_SPACE:
-            continue
-        space = engine.spaces[sub_id]
-        numbers: list[NumberEntity] = []
-        for midx, metric in enumerate(space.metrics):
-            if metric.kind is MetricKind.CO2:
-                numbers.append(AeolusTargetNumber(engine, space))
-            elif metric.tiers:  # FR-E7: a threshold control per other driven metric
-                numbers.append(AeolusMetricThresholdNumber(engine, space, midx, metric.kind))
-        async_add_entities(numbers, config_subentry_id=sub_id)
+        if sub.subentry_type == SUBENTRY_TYPE_SPACE:
+            _add_for_space(sub_id)
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, signal_space_added(entry.entry_id), _add_for_space)
+    )
 
 
 class AeolusTargetNumber(AeolusSpaceEntity, NumberEntity):
