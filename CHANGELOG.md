@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added — Gold quality scale (2026-06-17)
-- Aeolus now satisfies all **Gold** Integration Quality Scale rules (manifest `quality_scale: gold`):
+### Added — Platinum quality scale (2026-06-17)
+- Aeolus now satisfies the full Integration Quality Scale through **Platinum** (manifest
+  `quality_scale: platinum`): the Platinum rules were already met (`strict-typing` via `mypy --strict`;
+  `async-dependency`/`inject-websession` are N/A for a dependency-free, HTTP-free integration), so
+  completing the **Gold** rules below raised the declared tier to Platinum:
   - **Docs**: added README sections for supported devices, supported functions, data-update model,
     use cases, examples, known limitations, and troubleshooting.
   - **icon-translations**: icons moved to `icons.json` (no `_attr_icon` in code).

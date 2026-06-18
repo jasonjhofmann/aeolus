@@ -6,7 +6,7 @@
 
 ---
 
-## Status: ✅ Gold quality scale
+## Status: ✅ Platinum quality scale
 
 The spec is settled and the v0.1 MVP is implemented end-to-end: data model +
 verified config-subentry flows, the push engine (no coordinator), time-aware
@@ -29,7 +29,7 @@ python3 -m venv ~/venvs/aeolus
 ~/venvs/aeolus/bin/python -m pytest        # from the repo root
 ```
 
-**Quality scale: Gold** — all Bronze + Silver + Gold rules complete (and the Platinum rules are satisfied too: `mypy --strict` clean, and `async-dependency`/`inject-websession` are N/A for a dependency-free, HTTP-free integration). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
+**Quality scale: Platinum** — every Bronze + Silver + Gold + Platinum rule is complete: `mypy --strict` clean, fully async/non-blocking, and dependency-free local compute (`async-dependency`/`inject-websession` are N/A — no external library, no HTTP). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v3.1; §8 multi-pollutant built, §9 humidity planned).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.
@@ -42,7 +42,7 @@ Aeolus lets you select CO₂ sensors and ventilation actuators (fans, switches, 
 
 ## Design targets
 
-- **Quality scale:** Home Assistant Integration **Quality Scale — Gold** (Platinum rules also met).
+- **Quality scale:** Home Assistant Integration **Quality Scale — Platinum**.
 - **Distribution:** HACS (custom integration).
 
 ## Why this isn't "just a CO₂ automation"

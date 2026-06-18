@@ -1,6 +1,6 @@
-# Aeolus quality-scale tracker. All Bronze + Silver + Gold rules complete;
-# the Platinum rules are satisfied too (strict-typing done; async-dependency
-# and inject-websession are N/A for a dependency-free, HTTP-free integration).
+# Aeolus quality-scale tracker. PLATINUM: every Bronze + Silver + Gold + Platinum
+# rule is done or exempt (strict-typing done; async-dependency and inject-websession
+# are N/A for a dependency-free, HTTP-free integration).
 # Status values: done | todo | exempt(+comment). Reference: core `airgradient`.
 rules:
   # --- Bronze ---

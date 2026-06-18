@@ -8,7 +8,7 @@
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/jasonjhofmann/aeolus/issues",
-  "quality_scale": "gold",
+  "quality_scale": "platinum",
   "requirements": [],
   "version": "0.4.0"
 }
