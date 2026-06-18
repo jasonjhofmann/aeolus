@@ -1,11 +1,13 @@
 """Aeolus actions, registered in async_setup (action-setup rule).
 
-v0.1 ships `recalibrate` (clears observed/learned gains). set_target / set_mode
-/ force_strategy land with the controller (FR-A1).
+v0.1 registers `recalibrate`. Observed/learned-gain reset is reserved for the
+upcoming auto-calibration feature (FR-A1/S4) — the action currently validates the
+entry and is a no-op. set_target / set_mode / force_strategy land with FR-A1.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 import voluptuous as vol
@@ -16,6 +18,8 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
 from .models import AeolusConfigEntry
+
+_LOGGER = logging.getLogger(__name__)
 
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 SERVICE_RECALIBRATE = "recalibrate"
@@ -41,6 +45,11 @@ def async_register_services(hass: HomeAssistant) -> None:
             )
         # TODO(FR-A1/S4): engine.reset_observed_gains()
         _ = cast(AeolusConfigEntry, entry).runtime_data.engine
+        _LOGGER.info(
+            "Aeolus recalibrate called for '%s' — observed-gain learning is not yet "
+            "implemented, so this is currently a no-op (reserved for auto-calibration)",
+            entry.title,
+        )
 
     hass.services.async_register(
         DOMAIN, SERVICE_RECALIBRATE, _recalibrate, schema=_RECALIBRATE_SCHEMA

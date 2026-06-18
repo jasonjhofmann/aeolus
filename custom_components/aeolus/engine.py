@@ -18,8 +18,10 @@ from homeassistant.const import (
     SERVICE_OPEN_COVER,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    STATE_CLOSING,
     STATE_ON,
     STATE_OPEN,
+    STATE_OPENING,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
@@ -292,12 +294,13 @@ class AeolusEngine:
         self._resubscribe_sources()
         self._seed_sources([s for m in space.metrics for s in m.sensors])
         self._space_available[space_id] = self.space_available(space_id)
+        _LOGGER.info("Aeolus: Space '%s' added live (%d metric(s))", space.name, len(space.metrics))
         self.request_evaluation()
 
     @callback
     def remove_space(self, space_id: str) -> None:
         """Drop a removed Space subentry (its device/entities are cleared by HA)."""
-        self.spaces.pop(space_id, None)
+        gone = self.spaces.pop(space_id, None)
         self._runtime.pop(space_id, None)
         self._space_available.pop(space_id, None)
         for sensor_id in list(self._sensor_to_metric):
@@ -307,6 +310,8 @@ class AeolusEngine:
             else:
                 del self._sensor_to_metric[sensor_id]
         self._resubscribe_sources()
+        if gone is not None:
+            _LOGGER.info("Aeolus: Space '%s' removed live", gone.name)
         self.request_evaluation()
 
     @callback
@@ -317,6 +322,7 @@ class AeolusEngine:
         self._init_actuator_runtime(act.subentry_id, act)
         self._resubscribe_actuators()
         self._resync_co2_setpoints()
+        _LOGGER.info("Aeolus: Actuator '%s' added live, wired into CO2 tiers", act.name)
         self.request_evaluation()
 
     @callback
@@ -333,6 +339,8 @@ class AeolusEngine:
                     tier.setpoints.pop(act_id, None)
         self._resync_co2_setpoints()
         self._resubscribe_actuators()
+        if act is not None:
+            _LOGGER.info("Aeolus: Actuator '%s' removed live and purged from all tiers", act.name)
         self.request_evaluation()
 
     @callback
@@ -399,11 +407,14 @@ class AeolusEngine:
         if midx >= len(srt.metrics):
             return
         mrt = srt.metrics[midx]
-        mrt.member_seen[sensor_id] = when
         metric = self.spaces[space_id].metrics[midx]
         values = self._read_metric_values(metric)
         if not values:
-            return
+            return  # no usable member reading → leave freshness + EMA untouched, so
+            # a sensor emitting only out-of-range garbage correctly ages to stale.
+        # Stamp freshness only once a usable value exists (the stale-sensor safety
+        # check keys off member_seen — see safety.is_stale).
+        mrt.member_seen[sensor_id] = when
         mrt.last_raw = _aggregate(values, metric.aggregation)
         if mrt.ema.add(mrt.last_raw, when) is not None:
             mrt.slope.update(mrt.ema.raw, when)  # type: ignore[arg-type]
@@ -435,7 +446,10 @@ class AeolusEngine:
         if act_id is None:
             return
         rt = self._act_runtime[act_id]
-        if new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+        # Ignore non-terminal states: UNKNOWN/UNAVAILABLE, and a cover's transient
+        # OPENING/CLOSING — which occur DURING Aeolus's own open/close command and
+        # would otherwise read as "off" and self-trigger a false manual override.
+        if new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE, STATE_OPENING, STATE_CLOSING):
             return
         actual_on = new_state.state in (STATE_ON, STATE_OPEN)
         act = self.actuators[act_id]
@@ -447,12 +461,15 @@ class AeolusEngine:
         if actual_on != rt.commanded_on:
             if act.override_grace <= timedelta(0):
                 rt.overridden_until = now + OVERRIDE_WINDOW  # immediate (default)
-                _LOGGER.debug("Actuator %s externally overridden", new_state.entity_id)
+                _LOGGER.info(
+                    "Aeolus: %s manually overridden — yielding control for %d min",
+                    act.name, OVERRIDE_WINDOW.total_seconds() // 60,
+                )
             elif rt.divergence_since is None:
                 rt.divergence_since = now  # start the clock; confirmed in _evaluate
         elif rt.divergence_since is not None:
             rt.divergence_since = None  # re-converged within grace → ignore the flap
-            _LOGGER.debug("Actuator %s re-converged within grace (flap ignored)", new_state.entity_id)
+            _LOGGER.debug("Aeolus: %s re-converged within grace (flap ignored)", act.name)
 
     def actuator_is_overridden(self, act_id: str, now: datetime) -> bool:
         until = self._act_runtime[act_id].overridden_until
@@ -485,13 +502,29 @@ class AeolusEngine:
         if rt.last_change is not None:
             elapsed = now - rt.last_change
             if crossing_on and elapsed < self.min_off:
+                _LOGGER.debug(
+                    "Aeolus: %s on held by min-off (%ds of %ds elapsed)",
+                    act.name, elapsed.total_seconds(), self.min_off.total_seconds(),
+                )
                 return
             if crossing_off and elapsed < self.min_on:
+                _LOGGER.debug(
+                    "Aeolus: %s off held by min-on (%ds of %ds elapsed)",
+                    act.name, elapsed.total_seconds(), self.min_on.total_seconds(),
+                )
                 return
         rt.commanded_setpoint = setpoint
         if crossing_on or crossing_off:  # speed changes don't reset the cycle clock
             rt.last_change = now
             rt.on_since = now if setpoint > 0 else None
+            # The on/off transition is the operator-relevant event (we drive real
+            # hardware); speed-only changes and rearm re-sends stay at DEBUG.
+            _LOGGER.info(
+                "Aeolus: commanding %s %s%s",
+                act.name,
+                "on" if setpoint > 0 else "off",
+                f" ({setpoint}%)" if 0 < setpoint < 100 else "",
+            )
         self._send_command(act, setpoint, now)
 
     def _resolve_setpoint(self, act: Actuator, level: int | bool) -> int:
@@ -523,8 +556,19 @@ class AeolusEngine:
                 # a full-on (100) or a switch is a plain turn_on.
                 if domain == "fan" and 0 < setpoint < 100:
                     data["percentage"] = setpoint
-            self.hass.async_create_task(
-                self.hass.services.async_call(service_domain, service, data, blocking=False)
+            self.hass.async_create_task(self._async_call_service(service_domain, service, data))
+
+    async def _async_call_service(
+        self, domain: str, service: str, data: dict[str, int | str]
+    ) -> None:
+        """Fire one actuator service call, logging (not swallowing) any failure —
+        otherwise a failed command leaves the engine believing the device moved."""
+        try:
+            await self.hass.services.async_call(domain, service, data, blocking=True)
+        except Exception as err:  # never let a failed command crash the control loop
+            _LOGGER.warning(
+                "Aeolus: command %s.%s for %s failed: %s",
+                domain, service, data.get("entity_id"), err,
             )
 
     # --- control tick ----------------------------------------------------
@@ -557,9 +601,10 @@ class AeolusEngine:
             if grace > timedelta(0) and now - rt.divergence_since >= grace:
                 rt.overridden_until = now + OVERRIDE_WINDOW
                 rt.divergence_since = None
-                _LOGGER.debug(
-                    "Actuator %s override confirmed (divergence outlasted %s)",
-                    self.actuators[act_id].entity_id, grace,
+                _LOGGER.info(
+                    "Aeolus: %s override confirmed (divergence outlasted %s) — "
+                    "yielding control for %d min",
+                    self.actuators[act_id].name, grace, OVERRIDE_WINDOW.total_seconds() // 60,
                 )
 
     # --- availability (entity-unavailable / log-when-unavailable) --------

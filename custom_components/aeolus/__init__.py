@@ -7,6 +7,7 @@ registered in `async_setup` (action-setup rule).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import timedelta
 from typing import Any
@@ -67,6 +68,8 @@ from .models import (
     Tier,
 )
 from .services import async_register_services
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -158,6 +161,11 @@ def _async_sync_missing_entity_issues(
             continue
         issue_id = f"{ISSUE_MISSING_PREFIX}{entry.entry_id}_{entity_id}"
         wanted.add(issue_id)
+        if issue_reg.async_get_issue(DOMAIN, issue_id) is None:  # newly missing → log once
+            _LOGGER.warning(
+                "Aeolus: configured %s '%s' for '%s' no longer exists — raising a repair issue",
+                kind, entity_id, owner,
+            )
         ir.async_create_issue(
             hass,
             DOMAIN,
@@ -174,6 +182,7 @@ def _async_sync_missing_entity_issues(
     prefix = f"{ISSUE_MISSING_PREFIX}{entry.entry_id}_"
     for domain, issue_id in list(issue_reg.issues):
         if domain == DOMAIN and issue_id.startswith(prefix) and issue_id not in wanted:
+            _LOGGER.info("Aeolus: missing-entity repair issue resolved — clearing %s", issue_id)
             ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 

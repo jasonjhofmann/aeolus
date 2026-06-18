@@ -14,6 +14,7 @@ the `_induced_applicable` helper is retained (and unit-tested) for re-integratio
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,8 @@ from .const import (
     SpaceMode,
 )
 from .safety import is_stale, max_runtime_exceeded, outdoor_air_vetoed
+
+_LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .engine import AeolusEngine, MetricRuntime
@@ -77,7 +80,14 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
             and art.commanded_on
             and max_runtime_exceeded(art, act, now)
         ):
-            setpoint = 0  # FR-G1 per-actuator runtime cap
+            # FR-G1 per-actuator runtime cap. Log the transition (still-demanded but
+            # force-off) once — command_actuator is idempotent so subsequent ticks
+            # won't re-log a no-op.
+            _LOGGER.warning(
+                "Aeolus: %s hit max runtime (%.0f min) — forcing off despite active demand",
+                act.name, act.max_runtime_min,
+            )
+            setpoint = 0
         engine.command_actuator(act_id, setpoint, now)
 
 
