@@ -231,6 +231,16 @@ def _tier_schema(actuators: list[tuple[str, str]]) -> vol.Schema:
     return vol.Schema(fields)
 
 
+def _space_level_errors(user_input: dict[str, Any]) -> dict[str, str]:
+    """High must sit ABOVE target so the deadband (the anti-short-cycle gap) is
+    non-empty; otherwise the synthesized CO₂ tier is degenerate (FR-C3)."""
+    target = user_input.get(CONF_TARGET_PPM)
+    high = user_input.get(CONF_HIGH_PPM)
+    if target is not None and high is not None and high <= target:
+        return {CONF_HIGH_PPM: "high_not_above_target"}
+    return {}
+
+
 class SpaceSubentryFlow(ConfigSubentryFlow):
     """Add / reconfigure a managed Space (FR-C3), optionally with graduated
     PM/AQI metric ladders (FR-P/FR-T) authored via a metric → tier wizard."""
@@ -279,6 +289,14 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         self._reconfigure = False
         if user_input is not None:
+            if errors := _space_level_errors(user_input):
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=_space_schema(
+                        user_input, show_graduated=self._ladders_enabled()
+                    ),
+                    errors=errors,
+                )
             enter_wizard = self._begin(user_input)
             self._metrics = []
             return await self.async_step_metric() if enter_wizard else self._finish()
@@ -293,6 +311,14 @@ class SpaceSubentryFlow(ConfigSubentryFlow):
         self._reconfigure = True
         self._subentry = self._get_reconfigure_subentry()
         if user_input is not None:
+            if errors := _space_level_errors(user_input):
+                return self.async_show_form(
+                    step_id="reconfigure",
+                    data_schema=_space_schema(
+                        user_input, show_graduated=self._ladders_enabled()
+                    ),
+                    errors=errors,
+                )
             enter_wizard = self._begin(user_input)
             # Re-authoring replaces the metrics; otherwise carry them forward.
             self._metrics = (
@@ -414,6 +440,18 @@ def _actuator_schema(
     )
 
 
+def _actuator_errors(user_input: dict[str, Any]) -> dict[str, str]:
+    """FR-C8/P5: a recirculating Filter (air purifier) removes particulates, not
+    CO₂, so it cannot be assigned to a Space's CO₂ ventilation (served_spaces).
+    Reject the combination at config time (the controller also gates it at runtime
+    via MECHANISM_REDUCES, but surfacing it here prevents a silently-inert config)."""
+    if user_input.get(CONF_MECHANISM) == Mechanism.FILTER.value and user_input.get(
+        CONF_SERVED_SPACES
+    ):
+        return {CONF_SERVED_SPACES: "filter_cannot_serve_co2"}
+    return {}
+
+
 class ActuatorSubentryFlow(ConfigSubentryFlow):
     """Add / reconfigure a ventilation Actuator (FR-C4)."""
 
@@ -429,7 +467,12 @@ class ActuatorSubentryFlow(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         if user_input is not None:
-            # TODO(FR-C8): reject recirculating air purifiers here.
+            if errors := _actuator_errors(user_input):
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=_actuator_schema(self._space_options(), user_input),
+                    errors=errors,
+                )
             return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
         return self.async_show_form(
             step_id="user", data_schema=_actuator_schema(self._space_options())
@@ -440,6 +483,12 @@ class ActuatorSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         subentry = self._get_reconfigure_subentry()
         if user_input is not None:
+            if errors := _actuator_errors(user_input):
+                return self.async_show_form(
+                    step_id="reconfigure",
+                    data_schema=_actuator_schema(self._space_options(), user_input),
+                    errors=errors,
+                )
             return self.async_update_and_abort(
                 self._get_entry(),
                 subentry,

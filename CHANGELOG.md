@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-06-17
+
+### Added — config-time validation (enforce what the docs promise)
+- **Space:** the High threshold must be above the Target; an invalid combination is now
+  rejected in the config flow (both add and reconfigure) with a clear error, instead of
+  silently producing a degenerate CO₂ tier with no deadband.
+- **Actuator (FR-C8):** a recirculating air purifier (the `filter` mechanism) can no longer
+  be assigned to a Space's CO₂ ventilation (`served_spaces`) — the flow rejects it, since a
+  filter removes particulates, not CO₂. (The controller already gated this at runtime; now it
+  is caught at config time, as the documentation states.)
+
+### Changed
+- Docs: README "Testing" section uses `requirements_test.txt` and documents the CI matrix;
+  `docs/SCAFFOLD.md` directory tree updated for the CI workflows.
+
 ## [0.5.3] - 2026-06-17
 
 ### Added

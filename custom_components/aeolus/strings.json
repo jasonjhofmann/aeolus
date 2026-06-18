@@ -29,6 +29,9 @@
       "title": "Space",
       "entry_type": "Space",
       "initiate_flow": { "user": "Add a space" },
+      "error": {
+        "high_not_above_target": "The High threshold must be above the Target — the gap between them is the deadband that prevents short-cycling."
+      },
       "step": {
         "user": {
           "title": "Add a space",
@@ -114,6 +117,9 @@
       "title": "Actuator",
       "entry_type": "Actuator",
       "initiate_flow": { "user": "Add an actuator" },
+      "error": {
+        "filter_cannot_serve_co2": "A recirculating air purifier (the Filter mechanism) removes particulates, not CO₂, so it can't ventilate a Space for CO₂. Leave 'Spaces it ventilates (CO₂)' empty and assign it inside a Space's graduated PM/AQI response instead."
+      },
       "step": {
         "user": {
           "title": "Add an actuator",

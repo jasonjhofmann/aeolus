@@ -24,10 +24,14 @@ auto-calibration.
 ### Testing
 
 ```bash
-python3 -m venv ~/venvs/aeolus
-~/venvs/aeolus/bin/pip install pytest-homeassistant-custom-component
-~/venvs/aeolus/bin/python -m pytest        # from the repo root
+python3 -m venv .venv && source .venv/bin/activate   # Python 3.13+
+pip install -r requirements_test.txt
+python -m pytest                                     # from the repo root
 ```
+
+CI (`.github/workflows/`) runs `ruff`, `mypy --strict`, and the test suite on a
+**Python 3.13 + 3.14** matrix (3.13 is the support floor), plus a Python-3.13
+syntax-floor compile and hassfest + HACS validation, on every push and PR.
 
 **Quality scale: Platinum** — every Bronze + Silver + Gold + Platinum rule is complete: `mypy --strict` clean, fully async/non-blocking, and dependency-free local compute (`async-dependency`/`inject-websession` are N/A — no external library, no HTTP). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
