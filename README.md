@@ -6,7 +6,7 @@
 
 ---
 
-## Status: ✅ Bronze 18/18 + Silver + Platinum rules complete
+## Status: ✅ Gold quality scale
 
 The spec is settled and the v0.1 MVP is implemented end-to-end: data model +
 verified config-subentry flows, the push engine (no coordinator), time-aware
@@ -14,10 +14,12 @@ EMA + slope + gap-normalized ACH (unit-tested), per-space **hysteresis control**
 with coverage arbitration over `direct` actuators, **safety vetoes** (stale
 safe-state, filter-aware outdoor-AQ veto, per-actuator max-runtime), manual-
 override yield, and all five entity platforms (sensor / binary_sensor / number /
-select / switch). It loads in HA 2026.2.3 with the integration test harness and
-**13 tests pass** (EMA math, config flow, end-to-end setup, and the control loop
-actuating a real entity). Deferred to v1.1: induced/pressure edges + escalation,
-variable drive, full CAZ + radon veto, auto-calibration.
+select / switch). It loads on current Home Assistant with the integration test
+harness and the **full test suite passes** (EMA math, config + subentry flows,
+end-to-end setup, the control loop actuating a real entity, live dynamic add/
+remove of Spaces and Actuators, and repair-issue handling). Deferred to v1.1:
+induced/pressure edges + escalation, variable drive, full CAZ + radon veto,
+auto-calibration.
 
 ### Testing
 
@@ -27,7 +29,7 @@ python3 -m venv ~/venvs/aeolus
 ~/venvs/aeolus/bin/python -m pytest        # from the repo root
 ```
 
-**Quality scale:** Bronze 18/18 ✅, Silver 10/10 ✅, Platinum 3/3 ✅ (`mypy --strict` clean). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
+**Quality scale: Gold** — all Bronze + Silver + Gold rules complete (and the Platinum rules are satisfied too: `mypy --strict` clean, and `async-dependency`/`inject-websession` are N/A for a dependency-free, HTTP-free integration). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v3.1; §8 multi-pollutant built, §9 humidity planned).
 - **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.
@@ -40,8 +42,7 @@ Aeolus lets you select CO₂ sensors and ventilation actuators (fans, switches, 
 
 ## Design targets
 
-- **Build target:** Home Assistant Integration **Quality Scale — Silver**.
-- **Architected for:** **Platinum** (strict typing + provably non-blocking, dependency-free local compute).
+- **Quality scale:** Home Assistant Integration **Quality Scale — Gold** (Platinum rules also met).
 - **Distribution:** HACS (custom integration).
 
 ## Why this isn't "just a CO₂ automation"

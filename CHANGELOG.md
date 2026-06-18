@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — Gold quality scale (2026-06-17)
+- Aeolus now satisfies all **Gold** Integration Quality Scale rules (manifest `quality_scale: gold`):
+  - **Docs**: added README sections for supported devices, supported functions, data-update model,
+    use cases, examples, known limitations, and troubleshooting.
+  - **icon-translations**: icons moved to `icons.json` (no `_attr_icon` in code).
+  - **entity-translations**: the per-metric Manage switch now uses its translation key (no `_attr_name`).
+  - **entity-category** / **entity-disabled-by-default**: slope sensors are diagnostic + disabled by
+    default (their value is also a value-sensor attribute); ACH/reason/attention diagnostic.
+  - **exception-translations**: the `recalibrate` action raises with `translation_key`s.
+  - **repair-issues**: a missing configured source/actuator entity (deleted or renamed) raises an
+    actionable repair issue pointing to reconfigure.
+  - **dynamic-devices** / **stale-devices**: adding or removing a Space/Actuator subentry now takes
+    effect live, without reloading the entry; an actuator added later is wired into the CO₂ tiers of
+    the Spaces it serves. `async_remove_config_entry_device` allows deleting orphaned devices.
+- **Fixed**: all entities are now `should_poll = False` (push/command-driven), removing a pointless
+  30-second platform polling timer.
+
 ## [0.4.0] - 2026-06-09
 
 First versioned release (the package shipped as `0.0.1` since the v0.1 MVP; the
