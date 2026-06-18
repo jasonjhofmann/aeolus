@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.5.2] - 2026-06-18
+## [0.5.2] - 2026-06-17
 
 ### Fixed
 - **Critical: the integration failed to import on Home Assistant < 2026.x (Python < 3.14).**
