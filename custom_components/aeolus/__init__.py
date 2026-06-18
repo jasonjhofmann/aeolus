@@ -12,8 +12,10 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
@@ -43,6 +45,7 @@ from .const import (
     DEFAULT_HIGH_PPM,
     DEFAULT_RELEASE_FRACTION,
     DEFAULT_TARGET_PPM,
+    DOMAIN,
     SUBENTRY_TYPE_ACTUATOR,
     SUBENTRY_TYPE_SPACE,
     Aggregation,
@@ -52,7 +55,15 @@ from .const import (
     MetricKind,
 )
 from .engine import AeolusEngine
-from .models import Actuator, AeolusConfigEntry, AeolusData, Influence, Metric, Space, Tier
+from .models import (
+    Actuator,
+    AeolusConfigEntry,
+    AeolusData,
+    Influence,
+    Metric,
+    Space,
+    Tier,
+)
 from .services import async_register_services
 
 PLATFORMS: list[Platform] = [
@@ -83,7 +94,84 @@ async def async_setup_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bo
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # repair-issues: once HA has finished starting (so a not-yet-loaded source
+    # isn't mistaken for a deleted one), surface any configured source/actuator
+    # entity that no longer exists — a user-fixable misconfiguration.
+    @callback
+    def _on_started(_hass: HomeAssistant) -> None:
+        _async_sync_missing_entity_issues(hass, entry, spaces, actuators)
+
+    entry.async_on_unload(async_at_started(hass, _on_started))
     return True
+
+
+ISSUE_MISSING_PREFIX = "missing_entity_"
+
+
+def _referenced_entities(
+    spaces: dict[str, Space], actuators: dict[str, Actuator]
+) -> list[tuple[str, str, str]]:
+    """(entity_id, owner_name, kind) for every entity the config references."""
+    refs: list[tuple[str, str, str]] = []
+    for space in spaces.values():
+        for metric in space.metrics:
+            refs.extend((sid, space.name, "sensor") for sid in metric.sensors)
+        if space.outdoor_aq_entity:
+            refs.append((space.outdoor_aq_entity, space.name, "sensor"))
+    for act in actuators.values():
+        refs.extend(
+            (eid, act.name, "actuator")
+            for eid in (act.entities or [act.entity_id])
+            if eid
+        )
+        if act.outdoor_aq_entity:
+            refs.append((act.outdoor_aq_entity, act.name, "sensor"))
+    return refs
+
+
+@callback
+def _async_sync_missing_entity_issues(
+    hass: HomeAssistant,
+    entry: AeolusConfigEntry,
+    spaces: dict[str, Space],
+    actuators: dict[str, Actuator],
+) -> None:
+    """Create a repair issue per missing configured entity and clear resolved ones.
+
+    An entity counts as missing only when it is absent from BOTH the state machine
+    and the entity registry — i.e. genuinely deleted/renamed, not merely unavailable
+    or provided by an integration that hasn't loaded yet (entity-unavailable covers
+    those)."""
+    registry = er.async_get(hass)
+    issue_reg = ir.async_get(hass)
+    wanted: set[str] = set()
+    for entity_id, owner, kind in _referenced_entities(spaces, actuators):
+        present = (
+            hass.states.get(entity_id) is not None
+            or registry.async_get(entity_id) is not None
+        )
+        if present:
+            continue
+        issue_id = f"{ISSUE_MISSING_PREFIX}{entry.entry_id}_{entity_id}"
+        wanted.add(issue_id)
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="missing_entity",
+            translation_placeholders={
+                "entity_id": entity_id,
+                "name": owner,
+                "kind": kind,
+            },
+        )
+    prefix = f"{ISSUE_MISSING_PREFIX}{entry.entry_id}_"
+    for domain, issue_id in list(issue_reg.issues):
+        if domain == DOMAIN and issue_id.startswith(prefix) and issue_id not in wanted:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 async def _async_reload_on_update(hass: HomeAssistant, entry: AeolusConfigEntry) -> None:

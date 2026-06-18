@@ -263,5 +263,11 @@
     "entry_not_loaded": {
       "message": "The Aeolus configuration entry is not loaded. Enable it and try again."
     }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "Aeolus is configured with a missing entity",
+      "description": "Aeolus uses **{entity_id}** for **{name}**, but that entity no longer exists — it was likely deleted or renamed, so Aeolus can't read or control it. Open Settings → Devices & Services → Aeolus, edit **{name}**, and select the current entity (or remove the reference)."
+    }
   }
 }
