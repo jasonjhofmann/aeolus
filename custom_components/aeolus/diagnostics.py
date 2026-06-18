@@ -16,8 +16,9 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .engine import OVERRIDE_WINDOW, ActuatorRuntime
+from .engine import OVERRIDE_WINDOW
 from .models import AeolusConfigEntry
+from .runtime import ActuatorRuntime
 from .safety import is_stale, max_runtime_exceeded, outdoor_air_vetoed
 
 

@@ -14,8 +14,8 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 
 from .const import DEFAULT_STALE_AFTER_SEC, Mechanism
-from .engine import ActuatorRuntime, SpaceRuntime
 from .models import Actuator, Space
+from .runtime import ActuatorRuntime, SpaceRuntime
 
 # Mechanisms that move OUTDOOR air in (or depressurize → infiltration) and so
 # are subject to the outdoor-AQ veto (FR-G3 / §0.4).

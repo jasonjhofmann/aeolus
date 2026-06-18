@@ -28,8 +28,9 @@ from .safety import is_stale, max_runtime_exceeded, outdoor_air_vetoed
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .engine import AeolusEngine, MetricRuntime
+    from .engine import AeolusEngine
     from .models import Actuator, Influence, Metric, Space
+    from .runtime import MetricRuntime
 
 
 def evaluate(engine: AeolusEngine, now: datetime) -> None:

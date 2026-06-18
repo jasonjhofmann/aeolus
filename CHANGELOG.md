@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-06-18
+
+### Changed (internal refactor — no behavior or API change)
+- Extracted the runtime-state dataclasses (`MetricRuntime`, `SpaceRuntime`,
+  `ActuatorRuntime`) into a new leaf module `runtime.py`, fixing an inverted
+  dependency: `safety.py` previously imported these from `engine.py`, which forced
+  `engine.py` to import `safety`/`controller` lazily inside methods to dodge a
+  circular import. Those lazy imports are now top-level, and `safety`/`controller`
+  no longer depend on `engine` at runtime. The types remain re-exported from
+  `engine` for backward compatibility. (Audit P3, M3-1.)
+
 ## [0.5.4] - 2026-06-17
 
 ### Added — config-time validation (enforce what the docs promise)

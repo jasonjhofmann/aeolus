@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from homeassistant.const import (
@@ -41,6 +40,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
+from . import controller
 from .const import (
     DEFAULT_C_OUT_PPM,
     DEFAULT_CONTROL_TICK_SEC,
@@ -48,6 +48,7 @@ from .const import (
     DEFAULT_MAX_ALPHA,
     DEFAULT_MIN_OFF_SEC,
     DEFAULT_MIN_ON_SEC,
+    DEFAULT_RELEASE_FRACTION,
     DOMAIN,
     METRIC_FLOOR,
     METRIC_LABEL,
@@ -58,6 +59,8 @@ from .const import (
 from .ema import SlopeTracker, TimeAwareEMA
 from .estimator import effective_ach, time_to_target_min
 from .models import Actuator, Metric, Space
+from .runtime import ActuatorRuntime, MetricRuntime, SpaceRuntime
+from .safety import is_stale, max_runtime_exceeded, outdoor_air_vetoed
 
 
 def _aggregate(values: list[float], aggregation: Aggregation) -> float:
@@ -93,90 +96,9 @@ def signal_space_added(entry_id: str) -> str:
     return f"{DOMAIN}_{entry_id}_space_added"
 
 
-@dataclass(slots=True)
-class MetricRuntime:
-    """Live derived state for ONE metric of a Space (FR-P/FR-T)."""
-
-    kind: MetricKind
-    ema: TimeAwareEMA
-    slope: SlopeTracker
-    floor: float
-    last_raw: float | None = None
-    active_tier: int = -1  # staircase hysteresis (FR-T3); -1 = no tier engaged
-    # Per-metric management gate (FR-E9): True → contributes actuator demand;
-    # False → monitor-only (value/status still surfaced, no demand). Toggled by
-    # the advanced "Manage <metric>" switch; the space Mode is the master (FR-L6).
-    manage: bool = True
-    member_seen: dict[str, datetime] = field(default_factory=dict)
-
-    @property
-    def value(self) -> float | None:
-        return self.ema.value
-
-    @property
-    def slope_per_min(self) -> float | None:
-        per_sec = self.slope.per_second
-        return None if per_sec is None else round(per_sec * 60.0, 2)
-
-
-@dataclass(slots=True)
-class SpaceRuntime:
-    """Per-space runtime: one MetricRuntime per metric + the mitigation latch.
-
-    The space-level read API (ema_ppm/slope/member_seen) proxies the *primary*
-    metric (the CO₂ one if present, else the first) so the existing Space CO₂
-    sensor + slope/ACH entities keep working unchanged.
-    """
-
-    metrics: list[MetricRuntime]
-    primary: int = 0
-    mitigating: bool = False  # any metric tier engaged (FR-L1)
-
-    @property
-    def primary_metric(self) -> MetricRuntime | None:
-        return self.metrics[self.primary] if self.metrics else None
-
-    @property
-    def ema_ppm(self) -> float | None:
-        m = self.primary_metric
-        return None if m is None else m.value
-
-    @property
-    def slope_ppm_per_min(self) -> float | None:
-        m = self.primary_metric
-        return None if m is None else m.slope_per_min
-
-    @property
-    def last_raw_ppm(self) -> float | None:
-        m = self.primary_metric
-        return None if m is None else m.last_raw
-
-    @property
-    def member_seen(self) -> dict[str, datetime]:
-        m = self.primary_metric
-        return m.member_seen if m is not None else {}
-
-
-@dataclass(slots=True)
-class ActuatorRuntime:
-    """Aeolus's command state for one actuator. `commanded_setpoint` is 0..100
-    (0 = off; a fan %, or just on/off for switches/covers) — v3 variable drive."""
-
-    commanded_setpoint: int = 0
-    on_since: datetime | None = None
-    last_change: datetime | None = None
-    last_command_sent: datetime | None = (
-        None  # last time a service fired (rearm cadence)
-    )
-    overridden_until: datetime | None = None
-    divergence_since: datetime | None = (
-        None  # state≠command since (override confirmation, FR-L7b)
-    )
-    aq_vetoed: bool = False  # last-seen outdoor-AQ veto state (for transition logging)
-
-    @property
-    def commanded_on(self) -> bool:
-        return self.commanded_setpoint > 0
+# Runtime state dataclasses live in `runtime.py` (a leaf module safety.py can also
+# import without a cycle). Re-exported here so `engine.MetricRuntime` etc. keep
+# resolving for existing callers/tests.
 
 
 class AeolusEngine:
@@ -631,8 +553,6 @@ class AeolusEngine:
         self._evaluate(dt_util.utcnow())
 
     def _evaluate(self, now: datetime) -> None:
-        from . import controller  # lazy import to avoid a cycle
-
         self._promote_pending_overrides(now)
         controller.evaluate(self, now)
 
@@ -749,8 +669,6 @@ class AeolusEngine:
     def set_metric_threshold(self, space_id: str, midx: int, value: float) -> None:
         """Adjust the tier-1 engage threshold live (FR-E7), keeping its release
         below it for hysteresis; then re-evaluate."""
-        from .const import DEFAULT_RELEASE_FRACTION
-
         space = self.spaces.get(space_id)
         if space is None or not (0 <= midx < len(space.metrics)):
             return
@@ -816,8 +734,6 @@ class AeolusEngine:
         return [m.kind for m in srt.metrics if m.manage and m.active_tier >= 0]
 
     def _all_stale(self, srt: SpaceRuntime, now: datetime) -> bool:
-        from .safety import is_stale
-
         return bool(srt.metrics) and all(
             is_stale(m.member_seen, now) for m in srt.metrics
         )
@@ -825,8 +741,6 @@ class AeolusEngine:
     def space_attention(self, space_id: str, now: datetime | None = None) -> bool:
         """True if ANY driven metric is stale, maxed-and-still-high, or elevated &
         not improving — not CO₂ alone (FR-E6 correctness)."""
-        from .safety import is_stale
-
         now = now or dt_util.utcnow()
         srt = self._runtime.get(space_id)
         space = self.spaces.get(space_id)
@@ -916,8 +830,6 @@ class AeolusEngine:
 
     def _blocking_cause(self, space_id: str, now: datetime) -> str | None:
         """Why eligible actuators for an elevated metric aren't running (FR-U2)."""
-        from .safety import max_runtime_exceeded, outdoor_air_vetoed
-
         space = self.spaces.get(space_id)
         if space is None:
             return None

@@ -1,6 +1,6 @@
 [project]
 name = "aeolus"
-version = "0.5.4"
+version = "0.5.5"
 description = "Adaptive, multi-zone CO2 & ventilation manager for Home Assistant"
 readme = "README.md"
 license = { text = "Apache-2.0" }
