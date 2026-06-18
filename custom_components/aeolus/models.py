@@ -63,8 +63,9 @@ class Space:
     outdoor_aq_threshold: float | None = None
     radon_entity: str | None = None
     mode: SpaceMode = SpaceMode.MANAGE
-    # v3 (FR-P): one or more metrics with tier ladders. Synthesized from the legacy
-    # CO₂ fields above for old subentries; the engine migrates to these in v3-β.
+    # v3 (FR-P): one or more metrics with tier ladders. Synthesized at parse time
+    # (__init__._build_metrics) from the legacy CO₂ fields above — read-time, no
+    # .storage rewrite — and merged with any explicit PM/AQI metrics.
     metrics: list[Metric] = field(default_factory=list)
 
 

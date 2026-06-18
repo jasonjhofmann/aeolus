@@ -247,7 +247,7 @@
   "services": {
     "recalibrate": {
       "name": "Recalibrate",
-      "description": "Clear observed/learned actuator effectiveness for an Aeolus entry.",
+      "description": "Reset Aeolus's learned actuator effectiveness for an entry. Note: gain-learning is not yet implemented, so this currently has no effect — it is reserved for the upcoming auto-calibration feature.",
       "fields": {
         "config_entry_id": {
           "name": "Config entry",

@@ -169,16 +169,17 @@ entities:
 - **Single manager instance.** One Aeolus config entry per Home Assistant; all Spaces and Actuators live under it as subentries.
 - **`Room volume (ft³)` is currently unused.** It is reserved for the planned occupancy/generation (equilibrium-CO₂) estimate. The air-change-rate readout is gap-normalized and does not need volume.
 - **`aeolus.recalibrate` is a stub.** Observed/learned-gain reset lands with the auto-calibration feature; the action is registered but does not yet clear gains.
-- **No occupancy or radon/combustion vetoes yet.** Induced-edge escalation exists; full CAZ + radon depressurization vetoes are planned.
+- **Induced/pressure edges + escalation are deferred to v1.1.** The current control loop arbitrates over `direct` actuators only; pressure-mediated (induced) coupling and direct→induced escalation, plus occupancy and radon/combustion (CAZ) vetoes, are planned.
+- **Continuous-run cap is a fixed 120 minutes.** An actuator running continuously for 120 minutes is force-stopped as a baseline safety cap (it then re-engages on the next cycle if still demanded). This cap is not yet user-configurable.
 - **Filtration removes particulates, never CO₂.** A `filter`-mechanism actuator is rejected for CO₂ duty by design.
 - **CO₂ is removed only by air exchange.** Aeolus reports ACH precisely because filtration does nothing for CO₂ — see *Why this isn't "just a CO₂ automation"* above.
 
 ## Troubleshooting
 
 - **A fan/vent isn't turning on.** Check, in precedence order: the **Management** switch (master on/off) is on → the Space's **Mode** is `Manage` → for multi-metric Spaces, the relevant **Manage `<pollutant>`** switch is on. The **Status reason** sensor states the exact cause.
-- **"Sensor unavailable / stale — mitigation suspended".** The Space's CO₂ source(s) are unavailable or haven't reported within the freshness window; Aeolus suspends control until they return. Confirm the source entity exists and is updating.
-- **"Manual override — yielding N min".** Aeolus saw the actuator change to a state it didn't command (a person or another automation), so it yielded for 30 minutes. For cloud devices (e.g. LG ThinQ) that briefly flap `unavailable → off → on`, set the actuator's **Manual-override confirmation delay** to ~2 minutes.
-- **"Outdoor-air quality veto".** The configured outdoor PM sensor is above the veto threshold, so outdoor-air ventilation is blocked. Lower-risk: assign a filtered intake (raise the actuator's filter efficiency) or relax the threshold.
+- **Reason reads *"Sensor unavailable — mitigation suspended"* or *"Sensor stale — mitigation suspended"*.** The Space's CO₂ source(s) are unavailable, or haven't reported a usable value within the freshness window; Aeolus suspends control until they return. Confirm the source entity exists and is updating.
+- **Reason reads *"manual override — yielding N min"*.** Aeolus saw the actuator change to a state it didn't command (a person or another automation), so it yields for 30 minutes. For cloud devices (e.g. LG ThinQ) that briefly flap `unavailable → off → on`, set the actuator's **Manual-override confirmation delay** to ~2 minutes.
+- **Reason reads *"outdoor-air quality veto"*.** The configured outdoor PM sensor is above the veto threshold, so outdoor-air ventilation is blocked. Lower-risk options: assign a filtered intake (raise the actuator's filter efficiency) or relax the threshold.
 - **A configured sensor/actuator was deleted or renamed.** Aeolus raises a **repair issue** ("Settings → Repairs") naming the missing entity; reconfigure the affected Space/Actuator to point at the new entity.
 - **The fan turns off on its own.** If the load has an internal auto-off timer while its switch keeps reporting `on`, set the actuator's **Re-arm interval** so Aeolus re-sends the ON command periodically.
 

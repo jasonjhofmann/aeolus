@@ -16,7 +16,7 @@
 
 ---
 
-## Target directory tree
+## Directory layout (as built)
 
 ```
 aeolus/
@@ -25,59 +25,53 @@ aeolus/
 ├── CHANGELOG.md
 ├── LICENSE                         # Apache-2.0
 ├── hacs.json                       # HACS manifest (name, HA min version, render_readme)
-├── pyproject.toml                  # ruff + mypy(strict) + pytest config; py.typed
-├── .github/
-│   └── workflows/
-│       ├── validate.yml            # hassfest + HACS validation
-│       └── test.yml                # ruff, mypy --strict, pytest --cov (gate >95%)
+├── pyproject.toml                  # ruff + mypy(strict) + pytest config
+├── conftest.py                     # pytest fixtures (enable_custom_integrations)
+├── .github/workflows/              # claude-code-review.yml, claude.yml
+│                                   #   (CI: hassfest + HACS validate + pytest still TODO)
 ├── custom_components/
 │   └── aeolus/
-│       ├── __init__.py             # async_setup (action-setup), async_setup_entry,
-│       │                           #   async_unload_entry (config-entry-unloading),
-│       │                           #   runtime_data wiring, subentry handlers
-│       ├── manifest.json           # domain, iot_class=calculated, quality_scale, codeowners
+│       ├── __init__.py             # async_setup (action-setup), async_setup_entry/unload,
+│       │                           #   runtime_data wiring, live subentry add/remove
+│       │                           #   (_async_handle_subentry_change), repair-issue sync,
+│       │                           #   async_remove_config_entry_device
+│       ├── manifest.json           # domain, iot_class=calculated, quality_scale=platinum
 │       ├── const.py                # DOMAIN, defaults (HALFLIFE_SEC=300, MAX_ALPHA=0.5,
-│       │                           #   C_OUT_DEFAULT=420), enums (Mechanism, InfluenceType, Status)
-│       ├── config_flow.py          # config + options + reconfigure flow; Space & Actuator
-│       │                           #   SUBENTRY flows; test-before-configure; FR-C8 purifier guard
-│       ├── coordinator.py          # the Engine: source-entity subscriptions, tick loop,
-│       │                           #   orchestrates estimator + controller + safety
-│       ├── model.py                # dataclasses: Space, Actuator, Influence, AirShareLink,
-│       │                           #   InfluenceGraph (the software image of M(u))
-│       ├── ema.py                  # time-aware EMA (VT scheme) — pure, unit-tested
-│       ├── estimator.py            # slope, effective_ach (gap-normalized), equilibrium,
-│       │                           #   exponential time-to-target, occupancy/disturbance est.,
-│       │                           #   per-(actuator,space) gain identification (decay system-ID)
-│       ├── controller.py           # PI + hysteresis per space; multi-space arbitration
-│       │                           #   (coverage×gain − cost); induced-edge conditional logic;
-│       │                           #   strategy escalation; min on/off + settle windows
-│       ├── safety.py               # CAZ depressurization caps, radon veto, outdoor-AQ veto,
-│       │                           #   stale-sensor safe-state, manual-override yield
-│       ├── entity.py               # AeolusEntity base (has-entity-name, device-per-space)
-│       ├── sensor.py               # Space CO₂ + rich attributes; diagnostics sensors
+│       │                           #   C_OUT=420), enums (Mechanism, InfluenceType, MetricKind…)
+│       ├── config_flow.py          # config + options flow; Space & Actuator SUBENTRY flows
+│       │                           #   (add + reconfigure); graduated PM/AQI tier wizard
+│       ├── engine.py               # the push Engine: source + actuator state subscriptions,
+│       │                           #   per-space EMA/slope, command_actuator (min on/off, rearm,
+│       │                           #   override detection), control tick, live add/remove
+│       ├── models.py               # dataclasses: Space, Actuator, Influence, Metric, Tier,
+│       │                           #   AeolusData, typed AeolusConfigEntry
+│       ├── ema.py                  # time-aware EMA + slope tracker — pure, unit-tested
+│       ├── estimator.py            # gap-normalized effective_ach + exponential time-to-target
+│       ├── controller.py           # per-space hysteresis staircase + coverage arbitration over
+│       │                           #   `direct` actuators, safety-gated (induced edges deferred)
+│       ├── safety.py               # stale-sensor safe-state, filter-aware outdoor-AQ veto,
+│       │                           #   per-actuator max-runtime (CAZ/radon vetoes deferred)
+│       ├── entity.py               # AeolusSpaceEntity base (has-entity-name, device-per-space)
+│       ├── sensor.py               # per-metric value + slope + ACH + reason (push)
 │       ├── binary_sensor.py        # mitigation_active, attention
-│       ├── number.py               # target ppm
+│       ├── number.py               # CO₂ target + per-metric thresholds
 │       ├── select.py               # space mode (manage/monitor/off)
-│       ├── switch.py               # master enable
-│       ├── diagnostics.py          # redacted dump (graph, gains, EMA/slope, active vetoes)
-│       ├── repairs.py              # ir issues (HEPA-selected, sensor-stale, unreachable, AQ/radon veto)
-│       ├── services.yaml           # set_target, set_mode, force_strategy, recalibrate
-│       ├── strings.json            # config/options/subentry text, entity names, exceptions
+│       ├── switch.py               # master enable + per-metric manage gates
+│       ├── diagnostics.py          # full dump (graph, EMA/slope, staleness, vetoes, runtime;
+│       │                           #   no redaction needed — no secrets)
+│       ├── services.py/.yaml       # recalibrate action (gain-reset is a reserved stub)
+│       ├── strings.json            # config/options/subentry text, entity names, exceptions, issues
 │       ├── icons.json              # icon-translations
-│       ├── quality_scale.yaml      # rule-by-rule status (done/todo/exempt)
+│       ├── quality_scale.yaml      # rule-by-rule status (done/exempt)
 │       ├── py.typed                # PEP-561 marker (Platinum strict-typing)
 │       ├── brand/                  # icon/logo (light+dark) — served by HA's Brands Proxy
 │       │                           #   (custom_components/<domain>/brand/, 2026.3+); ships via HACS
-│       └── translations/
-│           └── en.json
-└── tests/
-    ├── conftest.py
-    ├── test_config_flow.py         # Bronze: config-flow-test-coverage
-    ├── test_ema.py                 # exactness vs VT formula; irregular Δt; max_alpha cap
-    ├── test_estimator.py           # slope sign, gap-normalized ACH, exponential ETA, reachability
-    ├── test_controller.py          # hysteresis, arbitration, induced gating, escalation, anti-hunt
-    ├── test_safety.py              # each veto + stale safe-state + override yield
-    └── test_scenario_canonical.py  # §4 ERV + bath-exhaust acceptance scenario end-to-end
+│       └── translations/en.json
+└── tests/                          # 25+ files: test_ema, test_estimator, test_control,
+                                    #   test_controller_unit, test_config_flow, test_subentry_flow,
+                                    #   test_safety, test_outdoor_aq, test_parity, test_reload,
+                                    #   test_dynamic_devices, test_repairs, test_diagnostics,
+                                    #   test_reliability, test_icons, …
 ```
 
 ## Module → requirement → quality-rule traceability
