@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-18
+
+### Added
+- **Durable action history (FR-U2).** Each operator-relevant decision — actuator
+  on/off (carrying the driving space + metric/tier), manual-override yield,
+  outdoor-AQ veto engage/clear, and runtime cap — now fires an `aeolus_action`
+  Home Assistant event (humanized in the **Logbook** via a new `logbook.py`) and
+  is retained in a bounded `recent_actions` ring surfaced in **diagnostics**. The
+  integration previously kept no decision log, so the *why* of an action was only
+  available as the live `reason` string. Tests: `tests/test_action_history.py`.
+
+### Fixed
+- **Attention status no longer flaps or contradicts its reason (FR-E6).** A
+  metric resting in its hysteresis band (between the release and engage
+  thresholds) reported `status: attention` while `reason` said "OK — all metrics
+  within range," and the per-space `attention` binary sensor toggled on every
+  slope sign-flip (hundreds of times a day on real sensor noise). `attention` is
+  now keyed on a metric's **engaged tier** (which carries the engage/release
+  hysteresis) with the engine's convergence deadband for "not improving," so a
+  value resting in the band stays `ok`; a partially-stale space now surfaces the
+  stale sensor in its `reason`. Status and reason are consistent by construction
+  (invariant test-guarded in `tests/test_attention.py`).
+
 ## [0.5.5] - 2026-06-18
 
 ### Changed (internal refactor — no behavior or API change)

@@ -88,8 +88,10 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
                         "threshold; ventilation via this pathway suspended",
                         act.name,
                     )
+                    engine.record_action("veto_engaged", actuator=act, now=now)
                 else:
                     _LOGGER.info("Aeolus: %s outdoor-AQ veto cleared", act.name)
+                    engine.record_action("veto_cleared", actuator=act, now=now)
         if engine.actuator_is_overridden(act_id, now):
             continue  # yield to the human/automation (FR-L7)
         setpoint = desired[act_id]
@@ -108,6 +110,7 @@ def evaluate(engine: AeolusEngine, now: datetime) -> None:
                 act.name,
                 act.max_runtime_min,
             )
+            engine.record_action("runtime_capped", actuator=act, now=now)
             setpoint = 0
         engine.command_actuator(act_id, setpoint, now)
 

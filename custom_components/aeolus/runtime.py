@@ -80,6 +80,25 @@ class SpaceRuntime:
 
 
 @dataclass(slots=True)
+class AeolusAction:
+    """One recorded engine decision (FR-U2): what action, when, and why.
+
+    Appended to the engine's bounded action ring and mirrored into the
+    ``aeolus_action`` HA event. ``message`` is the pre-humanized one-liner the
+    logbook + viewer render; the structured fields let consumers filter/group.
+    """
+
+    ts: datetime
+    action: str  # actuator_on | actuator_off | override | veto_engaged | …
+    message: str
+    actuator_id: str | None = None
+    actuator_name: str | None = None
+    setpoint: int | None = None
+    spaces: list[str] = field(default_factory=list)
+    reason: str | None = None
+
+
+@dataclass(slots=True)
 class ActuatorRuntime:
     """Aeolus's command state for one actuator. `commanded_setpoint` is 0..100
     (0 = off; a fan %, or just on/off for switches/covers) — v3 variable drive."""

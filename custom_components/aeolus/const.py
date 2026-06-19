@@ -96,6 +96,14 @@ C_OUT_GAP_EPSILON_PPM: Final = 5.0
 # falling faster than this (ppm/min) — i.e. its direct actuators aren't winning.
 CONVERGENCE_SLOPE_PPM_PER_MIN: Final = 1.0
 
+# --- Action history (FR-U2 explainability extension) ------------------------
+# Aeolus fires this HA event on each operator-relevant decision (actuator on/off,
+# manual-override yield, outdoor-AQ veto, runtime cap) so the recorder/logbook
+# and downstream consumers get a durable what/when/why record. It also keeps a
+# bounded in-memory ring of the same records, surfaced in diagnostics.
+EVENT_AEOLUS_ACTION: Final = "aeolus_action"
+ACTION_LOG_MAXLEN: Final = 256
+
 
 class Aggregation(StrEnum):
     """How a Space's member CO2 sensors are combined (FR-M1)."""
