@@ -9,6 +9,7 @@ lazily to avoid a cycle); the safety vetoes live in safety.py.
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
@@ -42,6 +43,8 @@ from homeassistant.util import dt as dt_util
 
 from . import controller
 from .const import (
+    ACTION_LOG_MAXLEN,
+    CONVERGENCE_SLOPE_PPM_PER_MIN,
     DEFAULT_C_OUT_PPM,
     DEFAULT_CONTROL_TICK_SEC,
     DEFAULT_HALFLIFE_SEC,
@@ -50,6 +53,7 @@ from .const import (
     DEFAULT_MIN_ON_SEC,
     DEFAULT_RELEASE_FRACTION,
     DOMAIN,
+    EVENT_AEOLUS_ACTION,
     METRIC_FLOOR,
     METRIC_LABEL,
     Aggregation,
@@ -59,7 +63,7 @@ from .const import (
 from .ema import SlopeTracker, TimeAwareEMA
 from .estimator import effective_ach, time_to_target_min
 from .models import Actuator, Metric, Space
-from .runtime import ActuatorRuntime, MetricRuntime, SpaceRuntime
+from .runtime import ActuatorRuntime, AeolusAction, MetricRuntime, SpaceRuntime
 from .safety import is_stale, max_runtime_exceeded, outdoor_air_vetoed
 
 
@@ -124,6 +128,9 @@ class AeolusEngine:
         self._runtime: dict[str, SpaceRuntime] = {}
         self._space_available: dict[str, bool] = {}
         self._act_runtime: dict[str, ActuatorRuntime] = {}
+        # Bounded ring of recent decisions (FR-U2): newest last. Surfaced in
+        # diagnostics and mirrored to the aeolus_action HA event.
+        self._actions: deque[AeolusAction] = deque(maxlen=ACTION_LOG_MAXLEN)
         # sensor_id → [(space_id, metric_index)] it feeds (FR-P).
         self._sensor_to_metric: dict[str, list[tuple[str, int]]] = {}
         self._actuator_by_entity: dict[str, str] = {}
@@ -419,6 +426,9 @@ class AeolusEngine:
                     act.name,
                     OVERRIDE_WINDOW.total_seconds() // 60,
                 )
+                self.record_action(
+                    "override", actuator=act, reason="manual change detected", now=now
+                )
             elif rt.divergence_since is None:
                 rt.divergence_since = now  # start the clock; confirmed in _evaluate
         elif rt.divergence_since is not None:
@@ -430,6 +440,103 @@ class AeolusEngine:
     def actuator_is_overridden(self, act_id: str, now: datetime) -> bool:
         until = self._act_runtime[act_id].overridden_until
         return until is not None and now < until
+
+    # --- action history (FR-U2) ------------------------------------------
+    @property
+    def recent_actions(self) -> list[AeolusAction]:
+        """The bounded decision ring, newest first."""
+        return list(reversed(self._actions))
+
+    def _actuator_space_names(self, act: Actuator) -> list[str]:
+        """Names of the spaces this actuator is wired to influence."""
+        names: list[str] = []
+        for inf in act.influences:
+            space = self.spaces.get(inf.space_id)
+            if space is not None and space.name not in names:
+                names.append(space.name)
+        return names
+
+    def _actuator_demand_reason(self, act: Actuator) -> str | None:
+        """The served space + metric/tier currently demanding this actuator, if any."""
+        for inf in act.influences:
+            srt = self._runtime.get(inf.space_id)
+            space = self.spaces.get(inf.space_id)
+            if srt is None or space is None:
+                continue
+            for midx, metric in enumerate(space.metrics):
+                if midx >= len(srt.metrics):
+                    continue
+                mrt = srt.metrics[midx]
+                if mrt.manage and mrt.active_tier >= 0:
+                    return (
+                        f"{space.name}: {METRIC_LABEL[metric.kind]} "
+                        f"tier {mrt.active_tier + 1}"
+                    )
+        return None
+
+    @staticmethod
+    def _action_message(
+        action: str, name: str | None, setpoint: int | None, reason: str | None
+    ) -> str:
+        who = name or "Aeolus"
+        if action == "actuator_on":
+            speed = f" ({setpoint}%)" if setpoint and 0 < setpoint < 100 else ""
+            return f"{who} on{speed}{f' — {reason}' if reason else ''}"
+        if action == "actuator_off":
+            return f"{who} off{f' — {reason}' if reason else ''}"
+        if action == "override":
+            return f"{who} — manual override, yielding control"
+        if action == "veto_engaged":
+            return f"{who} — outdoor-air veto engaged (outdoor PM high)"
+        if action == "veto_cleared":
+            return f"{who} — outdoor-air veto cleared"
+        if action == "runtime_capped":
+            return f"{who} — max runtime reached, forced off"
+        return f"{who} — {action}"
+
+    def record_action(
+        self,
+        action: str,
+        *,
+        actuator: Actuator | None = None,
+        setpoint: int | None = None,
+        reason: str | None = None,
+        now: datetime | None = None,
+    ) -> None:
+        """Append a decision to the ring and fire the ``aeolus_action`` event (FR-U2).
+
+        Durable (the event lands in the recorder/logbook) + convenient (the ring
+        is surfaced in diagnostics). Never raises into the control loop.
+        """
+        now = now or dt_util.utcnow()
+        name = actuator.name if actuator is not None else None
+        spaces = self._actuator_space_names(actuator) if actuator is not None else []
+        message = self._action_message(action, name, setpoint, reason)
+        self._actions.append(
+            AeolusAction(
+                ts=now,
+                action=action,
+                message=message,
+                actuator_id=actuator.subentry_id if actuator is not None else None,
+                actuator_name=name,
+                setpoint=setpoint,
+                spaces=spaces,
+                reason=reason,
+            )
+        )
+        self.hass.bus.async_fire(
+            EVENT_AEOLUS_ACTION,
+            {
+                "entry_id": self.entry_id,
+                "action": action,
+                "message": message,
+                "actuator_id": actuator.subentry_id if actuator is not None else None,
+                "actuator_name": name,
+                "setpoint": setpoint,
+                "spaces": spaces,
+                "reason": reason,
+            },
+        )
 
     def command_actuator(self, act_id: str, level: int | bool, now: datetime) -> None:
         """Drive an actuator to a setpoint (0..100; 0 = off), honoring min on/off
@@ -485,6 +592,16 @@ class AeolusEngine:
                 "on" if setpoint > 0 else "off",
                 f" ({setpoint}%)" if 0 < setpoint < 100 else "",
             )
+            if setpoint > 0:
+                self.record_action(
+                    "actuator_on",
+                    actuator=act,
+                    setpoint=setpoint,
+                    reason=self._actuator_demand_reason(act),
+                    now=now,
+                )
+            else:
+                self.record_action("actuator_off", actuator=act, setpoint=0, now=now)
         self._send_command(act, setpoint, now)
 
     def _resolve_setpoint(self, act: Actuator, level: int | bool) -> int:
@@ -572,6 +689,12 @@ class AeolusEngine:
                     self.actuators[act_id].name,
                     grace,
                     OVERRIDE_WINDOW.total_seconds() // 60,
+                )
+                self.record_action(
+                    "override",
+                    actuator=self.actuators[act_id],
+                    reason="manual change confirmed",
+                    now=now,
                 )
 
     # --- availability (entity-unavailable / log-when-unavailable) --------
@@ -755,8 +878,21 @@ class AeolusEngine:
                 continue
             if value > metric.tiers[-1].engage_at:  # at/over the top tier
                 return True
+            # "Elevated & not improving" keys on the ENGAGED tier (active_tier,
+            # which carries the engage/release hysteresis) — NOT a bare
+            # value > release_at. Two reasons: (1) it matches what space_reason
+            # calls "elevated" (engage threshold), so status and reason can never
+            # contradict ("attention" while the reason says "OK — within range");
+            # (2) a metric merely resting in its hysteresis band (active_tier=-1)
+            # no longer flaps attention on every slope sign-flip. "Not improving"
+            # uses the engine's existing convergence deadband (slope not clearly
+            # falling), so sensor noise around zero doesn't toggle it either.
             slope = mrt.slope_per_min
-            if value > metric.tiers[0].release_at and slope is not None and slope >= 0:
+            if (
+                mrt.manage
+                and mrt.active_tier >= 0
+                and (slope is None or slope >= -CONVERGENCE_SLOPE_PPM_PER_MIN)
+            ):
                 return True
         return False
 
@@ -826,6 +962,14 @@ class AeolusEngine:
                 return f"{label} elevated — monitoring only (Manage {label} off)"
             cause = self._blocking_cause(space_id, now)
             return f"{label} elevated — {cause}" if cause else f"{label} elevated"
+        # A stale member sensor needs attention even when its last value was in
+        # range — surface it so status ("attention") and reason never disagree.
+        for midx, metric in enumerate(space.metrics):
+            if is_stale(srt.metrics[midx].member_seen, now):
+                return (
+                    f"{METRIC_LABEL[metric.kind]} sensor stale — "
+                    "readings may be outdated"
+                )
         return "OK — all metrics within range"
 
     def _blocking_cause(self, space_id: str, now: datetime) -> str | None:
