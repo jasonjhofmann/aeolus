@@ -15,6 +15,10 @@ from .const import MetricKind
 from .ema import SlopeTracker, TimeAwareEMA
 
 
+def _opt_str(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
 @dataclass(slots=True)
 class MetricRuntime:
     """Live derived state for ONE metric of a Space (FR-P/FR-T)."""
@@ -96,6 +100,39 @@ class AeolusAction:
     setpoint: int | None = None
     spaces: list[str] = field(default_factory=list)
     reason: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        """JSON-roundtrippable form (for diagnostics + the .storage ring)."""
+        return {
+            "ts": self.ts.isoformat(),
+            "action": self.action,
+            "message": self.message,
+            "actuator_id": self.actuator_id,
+            "actuator_name": self.actuator_name,
+            "setpoint": self.setpoint,
+            "spaces": list(self.spaces),
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> AeolusAction | None:
+        """Rebuild from :meth:`to_dict`; ``None`` if the timestamp is unparseable."""
+        try:
+            ts = datetime.fromisoformat(str(data["ts"]))
+        except (KeyError, TypeError, ValueError):
+            return None
+        spaces = data.get("spaces")
+        setpoint = data.get("setpoint")
+        return cls(
+            ts=ts,
+            action=str(data.get("action", "")),
+            message=str(data.get("message", "")),
+            actuator_id=_opt_str(data.get("actuator_id")),
+            actuator_name=_opt_str(data.get("actuator_name")),
+            setpoint=int(setpoint) if isinstance(setpoint, int) else None,
+            spaces=[str(s) for s in spaces] if isinstance(spaces, list) else [],
+            reason=_opt_str(data.get("reason")),
+        )
 
 
 @dataclass(slots=True)

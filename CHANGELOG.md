@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-18
+
+### Added
+- **Action history now survives restarts.** The `recent_actions` decision ring
+  (FR-U2) is persisted to `.storage` — debounced saves on each action, flushed
+  on unload, restored on setup — so the log is no longer lost on every Home
+  Assistant restart (the ring is in-memory). Test:
+  `tests/test_action_history.py::test_actions_persist_across_restart`.
+
 ## [0.6.0] - 2026-06-18
 
 ### Added

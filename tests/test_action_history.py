@@ -16,6 +16,7 @@ from custom_components.aeolus.const import (
     EVENT_AEOLUS_ACTION,
 )
 from custom_components.aeolus.diagnostics import async_get_config_entry_diagnostics
+from custom_components.aeolus.engine import AeolusEngine
 
 FAN = "input_boolean.fan"
 
@@ -103,6 +104,29 @@ async def test_action_log_is_bounded(hass: HomeAssistant) -> None:
     for _ in range(ACTION_LOG_MAXLEN + 25):
         engine.record_action("actuator_on", actuator=act, setpoint=100)
     assert len(engine.recent_actions) == ACTION_LOG_MAXLEN
+
+
+async def test_actions_persist_across_restart(
+    hass: HomeAssistant, hass_storage
+) -> None:
+    """The decision ring is restored from .storage after a teardown/rebuild."""
+    entry = await _setup(hass)
+    engine = entry.runtime_data.engine
+    act = next(iter(engine.actuators.values()))
+    engine.record_action("actuator_on", actuator=act, setpoint=100)
+    await engine.async_save_actions()  # flush to storage
+
+    # A fresh engine for the SAME entry_id (i.e. after a restart) restores it.
+    fresh = AeolusEngine(
+        hass, entry.entry_id, dict(engine.spaces), dict(engine.actuators)
+    )
+    await fresh.async_load_actions()
+
+    restored = fresh.recent_actions
+    assert restored, "expected the persisted action to be restored"
+    assert restored[0].action == "actuator_on"
+    assert restored[0].actuator_name == act.name
+    assert restored[0].setpoint == 100
 
 
 async def test_diagnostics_includes_recent_actions(hass: HomeAssistant) -> None:

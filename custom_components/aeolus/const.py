@@ -103,6 +103,10 @@ CONVERGENCE_SLOPE_PPM_PER_MIN: Final = 1.0
 # bounded in-memory ring of the same records, surfaced in diagnostics.
 EVENT_AEOLUS_ACTION: Final = "aeolus_action"
 ACTION_LOG_MAXLEN: Final = 256
+# The ring is persisted to .storage so it survives restarts (the in-memory deque
+# would otherwise reset). Saves are debounced to coalesce bursts.
+ACTION_STORE_VERSION: Final = 1
+ACTION_STORE_SAVE_DELAY_SEC: Final = 10.0
 
 
 class Aggregation(StrEnum):
