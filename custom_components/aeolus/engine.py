@@ -12,6 +12,7 @@ import logging
 from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Any
 
 from homeassistant.const import (
     SERVICE_CLOSE_COVER,
@@ -39,11 +40,14 @@ from homeassistant.helpers.event import (
     async_track_state_report_event,
     async_track_time_interval,
 )
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from . import controller
 from .const import (
     ACTION_LOG_MAXLEN,
+    ACTION_STORE_SAVE_DELAY_SEC,
+    ACTION_STORE_VERSION,
     CONVERGENCE_SLOPE_PPM_PER_MIN,
     DEFAULT_C_OUT_PPM,
     DEFAULT_CONTROL_TICK_SEC,
@@ -129,8 +133,12 @@ class AeolusEngine:
         self._space_available: dict[str, bool] = {}
         self._act_runtime: dict[str, ActuatorRuntime] = {}
         # Bounded ring of recent decisions (FR-U2): newest last. Surfaced in
-        # diagnostics and mirrored to the aeolus_action HA event.
+        # diagnostics and mirrored to the aeolus_action HA event. Persisted to
+        # .storage (debounced) so the history survives a restart.
         self._actions: deque[AeolusAction] = deque(maxlen=ACTION_LOG_MAXLEN)
+        # Created lazily (a load/save call site) so the engine can still be
+        # constructed without a real hass — Store() needs a live instance.
+        self._action_store: Store[list[dict[str, Any]]] | None = None
         # sensor_id → [(space_id, metric_index)] it feeds (FR-P).
         self._sensor_to_metric: dict[str, list[tuple[str, int]]] = {}
         self._actuator_by_entity: dict[str, str] = {}
@@ -447,6 +455,36 @@ class AeolusEngine:
         """The bounded decision ring, newest first."""
         return list(reversed(self._actions))
 
+    def _actions_store(self) -> Store[list[dict[str, Any]]]:
+        if self._action_store is None:
+            self._action_store = Store(
+                self.hass, ACTION_STORE_VERSION, f"{DOMAIN}.{self.entry_id}.actions"
+            )
+        return self._action_store
+
+    @callback
+    def _actions_to_store(self) -> list[dict[str, Any]]:
+        """Serialize the ring for .storage (oldest first, as held)."""
+        return [a.to_dict() for a in self._actions]
+
+    async def async_load_actions(self) -> None:
+        """Restore the decision ring from .storage (call once, before start)."""
+        data = await self._actions_store().async_load()
+        if not data:
+            return
+        for raw in data[-ACTION_LOG_MAXLEN:]:
+            action = AeolusAction.from_dict(raw)
+            if action is not None:
+                self._actions.append(action)  # deque maxlen keeps it bounded
+
+    async def async_save_actions(self) -> None:
+        """Flush the ring to .storage now (cancels any pending debounced save).
+
+        Registered on entry unload so a reload/reconfigure doesn't drop the last
+        few actions; a full HA restart is already covered by Store's stop hook.
+        """
+        await self._actions_store().async_save(self._actions_to_store())
+
     def _actuator_space_names(self, act: Actuator) -> list[str]:
         """Names of the spaces this actuator is wired to influence."""
         names: list[str] = []
@@ -523,6 +561,9 @@ class AeolusEngine:
                 spaces=spaces,
                 reason=reason,
             )
+        )
+        self._actions_store().async_delay_save(
+            self._actions_to_store, ACTION_STORE_SAVE_DELAY_SEC
         )
         self.hass.bus.async_fire(
             EVENT_AEOLUS_ACTION,

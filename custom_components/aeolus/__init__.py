@@ -97,8 +97,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: AeolusConfigEntry) -> bo
     _migrate_entity_ids(hass, entry, spaces)
     engine = AeolusEngine(hass, entry.entry_id, spaces, actuators)
     entry.runtime_data = AeolusData(engine=engine)
+    # Restore the persisted action ring (FR-U2) before the engine starts ticking,
+    # so the history survives restarts; flush it back on unload.
+    await engine.async_load_actions()
     engine.async_start()
     entry.async_on_unload(engine.async_stop)
+    entry.async_on_unload(engine.async_save_actions)
     # Handle subentry changes live: a newly-added Space/Actuator is brought online
     # without a reload (dynamic-devices), a removed one is dropped (stale-devices),
     # and a reconfigure of an existing subentry reloads so its edited data re-parses.

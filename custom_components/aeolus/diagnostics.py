@@ -147,18 +147,6 @@ async def async_get_config_entry_diagnostics(
         "spaces": spaces,
         "actuators": actuators,
         # Bounded what/when/why decision log (newest first) — the durable history
-        # also fired as `aeolus_action` events (FR-U2).
-        "recent_actions": [
-            {
-                "ts": _dt(a.ts),
-                "action": a.action,
-                "message": a.message,
-                "actuator_id": a.actuator_id,
-                "actuator_name": a.actuator_name,
-                "setpoint": a.setpoint,
-                "spaces": a.spaces,
-                "reason": a.reason,
-            }
-            for a in engine.recent_actions
-        ],
+        # also fired as `aeolus_action` events and persisted to .storage (FR-U2).
+        "recent_actions": [a.to_dict() for a in engine.recent_actions],
     }
