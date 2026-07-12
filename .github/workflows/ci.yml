@@ -12,7 +12,7 @@ jobs:
     name: Lint + type-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -40,7 +40,7 @@ jobs:
     name: Syntax floor (Python 3.13)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -57,7 +57,7 @@ jobs:
         # 3.13 = the support floor (resolves a floor-era HA); 3.14 = current.
         python-version: ["3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
