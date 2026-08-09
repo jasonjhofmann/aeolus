@@ -44,7 +44,7 @@
             "high_ppm": "High threshold (ppm)",
             "volume_ft3": "Room volume (ft³)",
             "outdoor_aq_entity": "Outdoor air-quality (PM) sensor",
-            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (µg/m³)",
+            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (μg/m³)",
             "add_graduated": "Add a graduated PM/AQI response →"
           },
           "data_description": {
@@ -70,7 +70,7 @@
             "high_ppm": "High threshold (ppm)",
             "volume_ft3": "Room volume (ft³)",
             "outdoor_aq_entity": "Outdoor air-quality (PM) sensor",
-            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (µg/m³)",
+            "outdoor_aq_threshold": "Outdoor-AQ veto threshold (μg/m³)",
             "add_graduated": "Re-author the graduated PM/AQI response →"
           },
           "data_description": {
@@ -107,7 +107,7 @@
             "add_another_tier": "Add another (higher) tier"
           },
           "data_description": {
-            "engage_at": "The pollutant level (µg/m³ or AQI) at which this tier turns on. Release (turn-off) is automatic, ~15% below this.",
+            "engage_at": "The pollutant level (μg/m³ or AQI) at which this tier turns on. Release (turn-off) is automatic, ~15% below this.",
             "add_another_tier": "Turn on to define a higher tier after this one; leave off to finish."
           }
         }
@@ -183,9 +183,9 @@
     },
     "metric_kind": {
       "options": {
-        "pm1": "PM1 (µg/m³)",
-        "pm2_5": "PM2.5 (µg/m³)",
-        "pm10": "PM10 (µg/m³)",
+        "pm1": "PM1 (μg/m³)",
+        "pm2_5": "PM2.5 (μg/m³)",
+        "pm10": "PM10 (μg/m³)",
         "aqi": "Air-Quality Index",
         "generic": "Other numeric sensor"
       }
