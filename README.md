@@ -24,14 +24,14 @@ auto-calibration.
 ### Testing
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate   # Python 3.13+
+python3 -m venv .venv && source .venv/bin/activate   # Python 3.14+
 pip install -r requirements_test.txt
 python -m pytest                                     # from the repo root
 ```
 
 CI (`.github/workflows/`) runs `ruff`, `mypy --strict`, and the test suite on a
-**Python 3.13 + 3.14** matrix (3.13 is the support floor), plus a Python-3.13
-syntax-floor compile and hassfest + HACS validation, on every push and PR.
+**Python 3.14** (the support floor, since HA 2026.7 requires Python 3.14), plus a
+Python-3.14 syntax-floor compile and hassfest + HACS validation, on every push and PR.
 
 **Quality scale: Platinum** — every Bronze + Silver + Gold + Platinum rule is complete: `mypy --strict` clean, fully async/non-blocking, and dependency-free local compute (`async-dependency`/`inject-websession` are N/A — no external library, no HTTP). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
 
@@ -58,7 +58,7 @@ Two correctness points drive the whole design (see REQUIREMENTS §1, §0.3):
 
 ## Installation
 
-**HACS (recommended):** add `https://github.com/jasonjhofmann/aeolus` as a *custom repository* (type: Integration), install **Aeolus**, then restart Home Assistant. **Manual:** copy `custom_components/aeolus/` into your HA `config/custom_components/` and restart. Requires Home Assistant **2025.4 or newer** (config subentries).
+**HACS (recommended):** add `https://github.com/jasonjhofmann/aeolus` as a *custom repository* (type: Integration), install **Aeolus**, then restart Home Assistant. **Manual:** copy `custom_components/aeolus/` into your HA `config/custom_components/` and restart. Requires Home Assistant **2026.7 or newer** (config subentries; `UnitOfDensity`/`UnitOfRatio`), which itself requires **Python 3.14**.
 
 Then **Settings → Devices & Services → Add Integration → Aeolus** to create the manager.
 

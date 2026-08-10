@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
+### Changed — BREAKING: minimum Home Assistant is now 2026.7.0 (Python 3.14)
+- **Migrated off the deprecated `CONCENTRATION_*` constants.** Home Assistant core
+  PR #175189 (merged 2026-06-30) deprecated all six `CONCENTRATION_*` constants via
+  `DeprecatedConstantEnum`, with **removal scheduled for HA Core 2027.8**. Aeolus
+  used one of them — `CONCENTRATION_PARTS_PER_MILLION`, the unit on the CO₂ Target
+  number — and now uses `UnitOfRatio.PARTS_PER_MILLION`
+  (`custom_components/aeolus/number.py`).
+- **This is a user-facing breaking change.** `UnitOfDensity`/`UnitOfRatio` first
+  ship in `homeassistant.const` at **2026.7.0** (they are absent at 2026.6.0), so
+  the declared minimum in `hacs.json` rises **2025.4.0 → 2026.7.0**. HA 2026.7
+  declares `requires-python = ">=3.14.2"`, so the effective Python floor rises
+  **3.13 → 3.14**. Installations on HA older than 2026.7 must stay on v0.6.1.
+- **No unit string and no runtime behavior change.** The deprecated constants still
+  resolve to `str`-subclass enum members with byte-identical values
+  (`CONCENTRATION_PARTS_PER_MILLION` *is* `UnitOfRatio.PARTS_PER_MILLION`, both
+  `'ppm'`), so entity units, recorded states, and long-term statistics are
+  untouched. The migration removes a startup deprecation warning and future-proofs
+  against the 2027.8 removal. `PERCENTAGE` was **not** deprecated (only re-pointed
+  at `UnitOfRatio.PERCENTAGE.value`) and is unchanged.
+- **Floor-coupled settings reconciled** so the repo tells one story: `pyproject.toml`
+  `requires-python` (`>=3.13` → `>=3.14`) and `[tool.ruff]` `target-version`
+  (`py313` → `py314`, which must equal the oldest supported Python); the CI
+  syntax-floor compile and the pytest matrix (`["3.13", "3.14"]` → `["3.14"]` —
+  Python 3.13 resolves a pre-2026.7 Home Assistant, observed 2026.2.3, which has no
+  `UnitOfRatio`, so that job would now fail at import); and the minimum-version
+  sentences in `README.md` and `docs/SCAFFOLD.md`.
+
 ## [0.6.2] - 2026-08-09
 
 ### Fixed

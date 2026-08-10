@@ -12,7 +12,7 @@
 
 **Deferred to v1.1 (not stubs — out of v0.1 scope):** induced/diffusive edges + direct→induced escalation (FR-L3/X3), PI control, variable-speed drive (FR-L4), cost-weighted arbitration, occupancy feedforward + `equilibrium_co2` (FR-S5), full CAZ net-exhaust budget + radon veto (FR-G2), auto-calibration (FR-X5), per-actuator influence-row UI (v0.1 uses a served-spaces multi-select → all `direct`, gain `medium`).
 
-**Decisions reflected:** min HA **2025.4** (config subentries); **no DataUpdateCoordinator** → `engine.py` (not `coordinator.py`); `models.py` (not `model.py`); `services.py` for the action-setup rule.
+**Decisions reflected:** min HA **2026.7** (config subentries, plus `UnitOfDensity`/`UnitOfRatio`; implies Python 3.14); **no DataUpdateCoordinator** → `engine.py` (not `coordinator.py`); `models.py` (not `model.py`); `services.py` for the action-setup rule.
 
 ---
 
@@ -27,8 +27,8 @@ aeolus/
 ├── hacs.json                       # HACS manifest (name, HA min version, render_readme)
 ├── pyproject.toml                  # ruff + mypy(strict) + pytest config
 ├── conftest.py                     # pytest fixtures (enable_custom_integrations)
-├── .github/workflows/              # ci.yml (ruff + mypy + syntax-floor-3.13 +
-│                                   #   pytest 3.13/3.14), validate.yml (hassfest +
+├── .github/workflows/              # ci.yml (ruff + mypy + syntax-floor-3.14 +
+│                                   #   pytest 3.14), validate.yml (hassfest +
 │                                   #   HACS), claude-code-review.yml, claude.yml
 ├── requirements_test.txt           # test/dev deps (no runtime deps)
 ├── custom_components/
