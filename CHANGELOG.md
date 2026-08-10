@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-09
+
 ### Fixed
 - **PM unit strings now use Home Assistant's canonical micro sign.**
   `METRIC_UNIT` spelled the particulate unit `µg/m³` with **U+00B5 MICRO
