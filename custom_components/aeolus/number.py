@@ -13,7 +13,7 @@ from homeassistant.components.number import (
     NumberEntity,
     NumberMode,
 )
-from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION
+from homeassistant.const import UnitOfRatio
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -87,7 +87,7 @@ class AeolusTargetNumber(AeolusSpaceEntity, NumberEntity):
 
     _attr_translation_key = "target"
     _attr_device_class = NumberDeviceClass.CO2
-    _attr_native_unit_of_measurement = CONCENTRATION_PARTS_PER_MILLION
+    _attr_native_unit_of_measurement = UnitOfRatio.PARTS_PER_MILLION
     _attr_native_min_value = 420
     _attr_native_max_value = 2000
     _attr_native_step = 10

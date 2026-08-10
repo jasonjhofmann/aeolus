@@ -119,7 +119,7 @@ class AeolusAction:
         """Rebuild from :meth:`to_dict`; ``None`` if the timestamp is unparseable."""
         try:
             ts = datetime.fromisoformat(str(data["ts"]))
-        except (KeyError, TypeError, ValueError):
+        except KeyError, TypeError, ValueError:
             return None
         spaces = data.get("spaces")
         setpoint = data.get("setpoint")

@@ -4,16 +4,19 @@ version = "0.5.5"
 description = "Adaptive, multi-zone CO2 & ventilation manager for Home Assistant"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-# Supported floor = Home Assistant 2025.4 (the hacs.json / manifest minimum), which
-# runs Python 3.13. The code must import on 3.13 — see [tool.ruff] target-version.
-requires-python = ">=3.13"
+# Supported floor = Home Assistant 2026.7 (the hacs.json minimum — "homeassistant" is
+# not a valid manifest.json key), which declares requires-python >=3.14.2. The code
+# must import on 3.14 — see [tool.ruff] target-version.
+requires-python = ">=3.14"
 
 [tool.ruff]
-# target-version = the OLDEST supported Python (the 3.13 floor), per the ruff docs.
-# This is load-bearing: at py314 pyupgrade rewrites `except (A, B):` into the bare
-# `except A, B:` (PEP 758), which is a SyntaxError on 3.13 and broke v0.5.1. Keep
-# this pinned to the floor so the parenthesized form is never re-stripped.
-target-version = "py313"
+# target-version = the OLDEST supported Python, per the ruff docs. The HA 2026.7 floor
+# declares requires-python >=3.14.2, so the oldest supported Python is now 3.14.
+# Keep this pinned to the floor. History, still load-bearing as a rule: while the floor
+# was 3.13, py314 let pyupgrade rewrite `except (A, B):` into the bare `except A, B:`
+# (PEP 758) — a SyntaxError on 3.13 that broke v0.5.1. At a 3.14 floor that rewrite is
+# legal on every supported runtime, so it is now permitted rather than a hazard.
+target-version = "py314"
 line-length = 88
 
 [tool.ruff.lint]
@@ -23,10 +26,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
 allowed-confusables = ["×", "–", "−", "α"]
 
 [tool.mypy]
-# Analyzes the code against the INSTALLED Home Assistant core. Current HA (2026.x)
-# is written in 3.14 syntax, so mypy must parse at 3.14 even though the code's
-# SUPPORT floor is 3.13 (ruff target-version above). These two intentionally differ:
-# ruff = the syntax we emit (floor); mypy = the runtime we type-check against (latest).
+# Analyzes the code against the INSTALLED Home Assistant core. With the HA 2026.7 floor
+# the SUPPORT floor is also 3.14 (ruff target-version above), so these two now coincide.
+# They remain distinct knobs — ruff = the syntax we emit (floor); mypy = the runtime we
+# type-check against (latest) — and will diverge again when HA's Python floor moves.
 python_version = "3.14"
 strict = true
 warn_unused_ignores = true

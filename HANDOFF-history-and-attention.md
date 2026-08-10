@@ -184,8 +184,8 @@ real log instead of reconstructing:
 ---
 
 ## Cross-cutting notes
-- This repo is **Platinum, strict-typed, CI-gated** (ruff `target-version=py312`
-  floor, mypy `--strict` on 3.14, pytest ≥95% on 3.13+3.14). Keep
+- This repo is **Platinum, strict-typed, CI-gated** (ruff `target-version=py314`
+  floor, mypy `--strict` on 3.14, pytest ≥95% on 3.14). Keep
   spec/code/tests/CHANGELOG moving together — a dangling FR-id is a bug here.
 - HA-history gotchas learned while building the viewer (relevant if you touch the
   viewer's reconstruction fallback): `/api/history/period` only puts `entity_id`
