@@ -82,7 +82,7 @@ Aeolus is a **calculated** integration: it does not talk to any hardware directl
 **Sources it reads (per Space):**
 
 - **CO₂ sensors** — any `sensor` with `device_class: carbon_dioxide` (ppm). Tested with Aranet4, AirGradient, Airthings, SCD4x-based ESPHome sensors.
-- **Particulate / AQI sensors (optional, graduated ladders)** — any numeric `sensor` reporting PM1 / PM2.5 / PM10 (µg/m³), an AQI, or a generic value. Tested with AirVisual/IQAir, PurpleAir, AirGradient, Aranet Radon+.
+- **Particulate / AQI sensors (optional, graduated ladders)** — any numeric `sensor` reporting PM1 / PM2.5 / PM10 (μg/m³), an AQI, or a generic value. Tested with AirVisual/IQAir, PurpleAir, AirGradient, Aranet Radon+.
 - **Outdoor air-quality sensor (optional veto)** — any PM `sensor` measuring the air a ventilation pathway would pull in.
 
 **Actuators it controls (per Actuator):**

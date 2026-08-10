@@ -199,9 +199,9 @@ METRIC_LABEL: Final[dict[MetricKind, str]] = {
 }
 METRIC_UNIT: Final[dict[MetricKind, str | None]] = {
     MetricKind.CO2: "ppm",
-    MetricKind.PM1: "µg/m³",
-    MetricKind.PM2_5: "µg/m³",
-    MetricKind.PM10: "µg/m³",
+    MetricKind.PM1: "μg/m³",
+    MetricKind.PM2_5: "μg/m³",
+    MetricKind.PM10: "μg/m³",
     MetricKind.AQI: None,
     MetricKind.GENERIC: None,
 }

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **PM unit strings now use Home Assistant's canonical micro sign.**
+  `METRIC_UNIT` spelled the particulate unit `µg/m³` with **U+00B5 MICRO
+  SIGN**; HA's value — `UnitOfDensity.MICROGRAMS_PER_CUBIC_METER`, and the
+  `CONCENTRATION_MICROGRAMS_PER_CUBIC_METER` constant it replaced — has always
+  been **U+03BC GREEK SMALL LETTER MU**. Those are different strings, so the
+  PM sensors' `native_unit_of_measurement` was not byte-equal to the unit HA
+  publishes for the `pm1`/`pm25`/`pm10` device classes. There was no
+  user-visible symptom (HA resolves the *displayed* unit through the
+  concentration converter, and the live entities were already showing U+03BC),
+  but any raw-string comparison against HA's constant would have failed. The
+  config-flow labels in `strings.json` and `translations/en.json` were
+  corrected to match, so the UI no longer renders two different mu glyphs.
+
 ## [0.6.1] - 2026-06-18
 
 ### Added
