@@ -20,6 +20,11 @@
 
 > In Greek myth, **Aeolus** is the keeper of the winds — he holds many separate winds and releases each on demand. That is what this integration does for your house: it orchestrates ERVs, exhaust fans, range hoods, supply and transfer fans, purifiers, and window openers across rooms that *share air*, releasing the right one at the right time — and telling you exactly why.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/dashboard-managed-co2.png" alt="A managed Space's CO₂ falling from 964 to 655 ppm, with slope, air-change rate, target, and the active control ladder" width="850">
+</p>
+<p align="center"><em>A managed bedroom converging on its target overnight — smoothed CO₂, slope, gap-normalized air changes, and the control ladder that did it. (Dashboard cards built from Aeolus entities.)</em></p>
+
 ## Your thermostat has a brain. Your ventilation deserves one too.
 
 Home Assistant will happily run *"if CO₂ > 1000, turn on the fan."* Aeolus exists because real houses are harder than that:
@@ -67,6 +72,22 @@ All configuration is in the UI. The single **Aeolus** entry holds two kinds of s
 - **Space** — a managed zone. Pick its CO₂ sensor(s) and aggregation, a target and high threshold (ppm), optional volume, and an optional outdoor air-quality (PM) sensor + veto threshold. With graduated ladders enabled (an option-flow toggle), a Space can also be driven by PM/AQI/generic metrics with a full tier ladder each.
 - **Actuator** — a ventilation device that reduces a pollutant (fan / switch / input_boolean / cover, or a same-domain group of them). Set its air *mechanism* (balanced ERV / supply / exhaust / transfer / window / filter), the Spaces it directly serves, its intake filter efficiency (0–1), an optional per-pathway intake AQ sensor, a fan on-speed, a re-arm interval, and a manual-override confirmation delay.
 
+<table>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/flow-add-space.png" alt="The Add-a-space dialog: name, CO₂ sensors, aggregation, and target" width="430"></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/flow-add-actuator.png" alt="The Add-an-actuator dialog: entity, air mechanism, served spaces, filter efficiency" width="430"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Add a Space: sensors, aggregation, targets.</em></td>
+    <td align="center"><em>Add an Actuator: mechanism, served spaces, filtration.</em></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/flow-options.png" alt="The options dialog explaining control precedence, with the graduated-ladders toggle" width="560">
+</p>
+<p align="center"><em>The options flow spells out the control precedence and gates the advanced tier-ladder wizard.</em></p>
+
 Adding or removing a Space or Actuator takes effect live, without reloading the entry; edits to an existing one are re-parsed and applied immediately. No restarts.
 
 ## Supported devices
@@ -109,6 +130,22 @@ Per **manager** (the single Aeolus device):
 | `switch` | **Management** | Master on/off for all Aeolus control. *(config)* |
 
 Every operator-relevant decision — actuator on/off with the driving space and tier, override yields, veto engage/clear, runtime caps — also fires an `aeolus_action` event, appears humanized in the **Logbook**, and is retained in a restart-surviving action history included in the diagnostics download.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/device-page.png" alt="A Space's device page: controls, sensors, per-metric manage switches, diagnostics, and an activity log of Aeolus decisions" width="850">
+</p>
+<p align="center"><em>A Space's device page. The Activity log reads like a flight recorder: "Mitigating CO₂ tier 1 → Kitchen Range Hood", "CO₂ tier 1 demanded — no eligible actuator".</em></p>
+
+<table>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/details-attributes.png" alt="The managed CO₂ sensor's attributes: raw value, slope, effective ACH, time to target, the tier ladder, status, and reason" width="430"></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/docs/images/moreinfo-managed-co2.png" alt="The managed CO₂ sensor's more-info dialog with 24 hours of history falling toward target" width="430"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Every answer as attributes: slope, effective ACH, the live tier ladder, and the reason.</em></td>
+    <td align="center"><em>Managed CO₂ is a normal sensor — history, statistics, and dashboards all just work.</em></td>
+  </tr>
+</table>
 
 ## How data updates
 

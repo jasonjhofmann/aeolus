@@ -23,6 +23,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `recalibrate` still a stub, fixed 120-minute runtime cap — and subentry
   *edits* reload the entry, so "live, no reload" is now claimed only for
   add/remove).
+- **README screenshots** (`docs/images/`, 7 images) captured headless from a
+  live installation in dark mode and cropped to content (no browser chrome or
+  sidebars): a managed Space's CO₂ falling to target with slope/ACH/ladder
+  cards (hero), the add-Space / add-Actuator / options config-flow dialogs,
+  a Space's device page with the decision Activity log, the managed-CO₂
+  attributes (Details) pane, and the more-info history dialog. Referenced
+  from the README via raw.githubusercontent URLs so they render on GitHub
+  and inside HACS.
 
 ## [0.7.0] - 2026-08-09
 
