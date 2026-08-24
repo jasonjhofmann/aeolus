@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **README style pass for the HACS submission** (docs only). Rewrote the prose
+  to read plainly and follow the Google developer documentation style guide
+  where it applies: second person, active voice, sentence-case headings,
+  numbered install steps, "Settings > Devices & Services" menu-path style,
+  "for example" over "e.g.", no spaced percent signs. Removed the emoji
+  feature bullets, the em dashes, and the rhetorical section headers
+  ("Your thermostat has a brain" is now "Why Aeolus"; "Removal" is now
+  "Uninstall"). Content, images, and structure are unchanged.
 - **README rewritten for the HACS submission** (docs only; no code change). The
   development-status preamble — which still described the v0.1 MVP, cited the
   spec as v3.1 (now v3.2), and listed variable-speed drive as deferred even
