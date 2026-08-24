@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **README rewritten for the HACS submission** (docs only; no code change). The
+  development-status preamble — which still described the v0.1 MVP, cited the
+  spec as v3.1 (now v3.2), and listed variable-speed drive as deferred even
+  though it shipped with the §8 multi-pollutant work — is replaced by a
+  feature-forward introduction: brand logo header (theme-aware), release/HACS/
+  CI/quality-scale badges, one-click My Home Assistant install links, and a
+  pitch aimed at the Home Assistant air-quality community. Newly documented:
+  the graduated multi-pollutant tier ladders, the action-history / Logbook /
+  diagnostics surface (v0.6.x), and the fan on-speed, re-arm, and
+  override-confirmation actuator options. All quality-scale docs sections
+  (supported devices, entities, data updates, use cases, examples, known
+  limitations, troubleshooting, removal) are retained; every claim was
+  re-verified against the v0.7.0 code (induced edges still deferred,
+  `recalibrate` still a stub, fixed 120-minute runtime cap — and subentry
+  *edits* reload the entry, so "live, no reload" is now claimed only for
+  add/remove).
+
 ## [0.7.0] - 2026-08-09
 
 ### Changed — BREAKING: minimum Home Assistant is now 2026.7.0 (Python 3.14)

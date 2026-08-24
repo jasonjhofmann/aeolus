@@ -1,83 +1,77 @@
-# Aeolus
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/custom_components/aeolus/brand/dark_logo@2x.png">
+    <img src="https://raw.githubusercontent.com/jasonjhofmann/aeolus/main/custom_components/aeolus/brand/logo@2x.png" alt="Aeolus" width="380">
+  </picture>
+</p>
 
-**Adaptive, multi-zone CO₂ & ventilation manager for Home Assistant.**
+<p align="center"><strong>Multi-zone, multi-pollutant ventilation control for Home Assistant — physics-grounded, safety-vetoed, and able to explain every move it makes.</strong></p>
 
-> In Greek myth, **Aeolus** is the keeper of the winds — he holds many separate winds and releases each on demand. That is exactly what this integration does: it orchestrates multiple, cross-coupled air streams (ERV/HRV, exhausts, supply/transfer fans, windows) across rooms that *share air*, releasing the right one at the right time to manage CO₂ — while reporting the rate of change (slope) and the underlying air-change rate (ACH), in the spirit of [Versatile Thermostat](https://github.com/jmcollin78/versatile_thermostat).
+<p align="center">
+  <a href="https://github.com/jasonjhofmann/aeolus/releases"><img src="https://img.shields.io/github/v/release/jasonjhofmann/aeolus" alt="Release"></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-custom-41BDF5.svg" alt="HACS"></a>
+  <a href="https://github.com/jasonjhofmann/aeolus/actions/workflows/ci.yml"><img src="https://github.com/jasonjhofmann/aeolus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://developers.home-assistant.io/docs/core/integration-quality-scale/"><img src="https://img.shields.io/badge/quality%20scale-platinum-e5e4e2.svg" alt="Quality scale: Platinum"></a>
+  <img src="https://img.shields.io/badge/Home%20Assistant-2026.7%2B-41BDF5.svg" alt="Home Assistant 2026.7+">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jasonjhofmann/aeolus" alt="License"></a>
+</p>
 
 ---
 
-## Status: ✅ Platinum quality scale
+> In Greek myth, **Aeolus** is the keeper of the winds — he holds many separate winds and releases each on demand. That is what this integration does for your house: it orchestrates ERVs, exhaust fans, range hoods, supply and transfer fans, purifiers, and window openers across rooms that *share air*, releasing the right one at the right time — and telling you exactly why.
 
-The spec is settled and the v0.1 MVP is implemented end-to-end: data model +
-verified config-subentry flows, the push engine (no coordinator), time-aware
-EMA + slope + gap-normalized ACH (unit-tested), per-space **hysteresis control**
-with coverage arbitration over `direct` actuators, **safety vetoes** (stale
-safe-state, filter-aware outdoor-AQ veto, per-actuator max-runtime), manual-
-override yield, and all five entity platforms (sensor / binary_sensor / number /
-select / switch). It loads on current Home Assistant with the integration test
-harness and the **full test suite passes** (EMA math, config + subentry flows,
-end-to-end setup, the control loop actuating a real entity, live dynamic add/
-remove of Spaces and Actuators, and repair-issue handling). Deferred to v1.1:
-induced/pressure edges + escalation, variable drive, full CAZ + radon veto,
-auto-calibration.
+## Your thermostat has a brain. Your ventilation deserves one too.
 
-### Testing
+Home Assistant will happily run *"if CO₂ > 1000, turn on the fan."* Aeolus exists because real houses are harder than that:
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate   # Python 3.14+
-pip install -r requirements_test.txt
-python -m pytest                                     # from the repo root
-```
+- **One actuator affects many rooms, and rooms share air.** An ERV serves four bedrooms; a bath exhaust depressurizes the whole envelope. Aeolus models these couplings explicitly and arbitrates demand across zones instead of fighting itself.
+- **"Ventilate more" is sometimes the wrong answer.** When it's smoky outside, when the intake filter can't cope, or when a sensor has gone stale, blindly running fans trades one hazard for another. Aeolus vetoes those moves.
+- **A recirculating purifier does nothing for CO₂** — filtration removes particulates, never CO₂. Aeolus enforces this at config time, not just in the docs.
+- **Raw ppm/min is not a performance metric.** CO₂ decays exponentially toward the outdoor floor, so the same fan looks "fast" at 2000 ppm and "slow" at 800. Aeolus reports the concentration-normalized **air-change rate (ACH)** — a number you can actually compare across rooms, fans, and days.
 
-CI (`.github/workflows/`) runs `ruff`, `mypy --strict`, and the test suite on a
-**Python 3.14** (the support floor, since HA 2026.7 requires Python 3.14), plus a
-Python-3.14 syntax-floor compile and hassfest + HACS validation, on every push and PR.
+### What you get
 
-**Quality scale: Platinum** — every Bronze + Silver + Gold + Platinum rule is complete: `mypy --strict` clean, fully async/non-blocking, and dependency-free local compute (`async-dependency`/`inject-websession` are N/A — no external library, no HTTP). The `brands` rule is satisfied by the in-package assets at `custom_components/aeolus/brand/` (icon/logo + dark variants), served locally via HA's Brands Proxy — `home-assistant/brands` no longer accepts custom-integration submissions, so the local folder is the supported path. **Next:** v1.1 polish (per-actuator influence-row config UI, variable-speed drive).
+- 🌀 **Multi-zone, shared-air control** — group sensors and actuators into *Spaces*; one actuator can serve many spaces, with per-space hysteresis control and cross-space arbitration.
+- 🪜 **Graduated multi-pollutant response** — drive a space by **CO₂, PM1, PM2.5, PM10, AQI, or a generic level**, each with its own tier ladder: hood at 20 % when PM2.5 > 30, everything at 100 % when it clears 80, ramping back down with engage/release hysteresis so nothing short-cycles.
+- 📉 **Physics-grounded telemetry** — time-aware EMA smoothing, a signed **slope** (per minute), **effective ACH**, and time-to-target for every space.
+- 🛡️ **Safety vetoes** — a filter-aware outdoor-air-quality veto, stale-sensor safe state, per-actuator runtime caps, and the purifier-can't-do-CO₂ capability gate.
+- ✋ **Plays well with humans** — a manual override yields control for 30 minutes, with a configurable confirmation delay so flappy cloud devices (looking at you, LG ThinQ) don't false-trigger it.
+- 🧾 **Explains itself** — a plain-language **Status reason** sensor, every decision humanized in the **Logbook**, and a durable action history in diagnostics that survives restarts.
+- 🖱️ **100 % UI-configured** — config flow with subentries; no YAML, live add/remove of spaces and actuators without a reload.
+- ⚡ **Push, not poll** — event-driven recompute the moment a reading arrives, zero external dependencies, `mypy --strict` clean, **Platinum** on the Integration Quality Scale.
 
-- **[REQUIREMENTS.md](REQUIREMENTS.md)** — the full, versioned requirements specification (v3.1; §8 multi-pollutant built, §9 humidity planned).
-- **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, build status, and the Quality-Scale roadmap.
-- **[CHANGELOG.md](CHANGELOG.md)** — spec history.
-- **`custom_components/aeolus/`** — the integration; **`tests/`** — pure-math unit tests.
-
-## What it will do (one paragraph)
-
-Aeolus lets you select CO₂ sensors and ventilation actuators (fans, switches, ERV, windows) entirely through the UI, group them into **spaces**, and then keeps each space under a CO₂ target by activating actuators — explicitly modeling that **one actuator affects many rooms** and that **rooms share air** (direct, diffusive, and pressure-*induced* couplings). It reports a smoothed CO₂ value, a signed **slope** (ppm/min), and a concentration-normalized **effective air-change rate (ACH)** per space, and it refuses to trade one hazard for another (it won't ventilate into bad outdoor air, won't depressurize into a radon or combustion-safety problem, and won't let you pick a recirculating air purifier — which does nothing for CO₂).
-
-## Design targets
-
-- **Quality scale:** Home Assistant Integration **Quality Scale — Platinum**.
-- **Distribution:** HACS (custom integration).
-
-## Why this isn't "just a CO₂ automation"
-
-Two correctness points drive the whole design (see REQUIREMENTS §1, §0.3):
-
-1. **CO₂ is removed only by air exchange**, never by filtration — HEPA/carbon/PCO/ionizers do nothing for CO₂. Aeolus enforces this at config time.
-2. **CO₂ decay is exponential toward an outdoor floor (~420 ppm)**, so the comparable effectiveness metric is the **air-change rate (ACH)**, not raw ppm/min (which scales with how high CO₂ currently is). Aeolus reports both.
+**On the roadmap:** humidity and moisture management (shower-steam exhaust, over-dry veto), pressure-induced coupling and escalation, radon/combustion-safety budgets, and auto-calibration of actuator effectiveness. The full design lives in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 ## Installation
 
-**HACS (recommended):** add `https://github.com/jasonjhofmann/aeolus` as a *custom repository* (type: Integration), install **Aeolus**, then restart Home Assistant. **Manual:** copy `custom_components/aeolus/` into your HA `config/custom_components/` and restart. Requires Home Assistant **2026.7 or newer** (config subentries; `UnitOfDensity`/`UnitOfRatio`), which itself requires **Python 3.14**.
+Requires Home Assistant **2026.7 or newer** (config subentries; `UnitOfDensity`/`UnitOfRatio`). Installations on older HA can use [v0.6.1](https://github.com/jasonjhofmann/aeolus/releases/tag/v0.6.1).
 
-Then **Settings → Devices & Services → Add Integration → Aeolus** to create the manager.
+**HACS (recommended):**
+
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jasonjhofmann&repository=aeolus&category=integration)
+
+Or manually: HACS → custom repositories → add `https://github.com/jasonjhofmann/aeolus` (type: Integration) → install **Aeolus** → restart Home Assistant.
+
+**Manual:** copy `custom_components/aeolus/` into your HA `config/custom_components/` and restart.
+
+Then add the integration:
+
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=aeolus)
+
+(**Settings → Devices & Services → Add Integration → Aeolus**.)
 
 ## Configuration
 
 All configuration is in the UI. The single **Aeolus** entry holds two kinds of subentries:
 
-- **Space** — a managed zone. Pick its CO₂ sensor(s) and aggregation, a target and high threshold (ppm), optional volume, and an optional outdoor air-quality (PM) sensor + veto threshold.
-- **Actuator** — a ventilation device that reduces CO₂ (fan / switch / input_boolean / cover). Set its air *mechanism* (balanced ERV / supply / exhaust / transfer / window), the Spaces it directly serves, its intake filter efficiency (0–1), and an optional per-pathway intake AQ sensor.
+- **Space** — a managed zone. Pick its CO₂ sensor(s) and aggregation, a target and high threshold (ppm), optional volume, and an optional outdoor air-quality (PM) sensor + veto threshold. With graduated ladders enabled (an option-flow toggle), a Space can also be driven by PM/AQI/generic metrics with a full tier ladder each.
+- **Actuator** — a ventilation device that reduces a pollutant (fan / switch / input_boolean / cover, or a same-domain group of them). Set its air *mechanism* (balanced ERV / supply / exhaust / transfer / window / filter), the Spaces it directly serves, its intake filter efficiency (0–1), an optional per-pathway intake AQ sensor, a fan on-speed, a re-arm interval, and a manual-override confirmation delay.
 
-Per Space you get a CO₂ sensor (with slope + effective-ACH + time-to-target attributes), a mitigation/attention binary sensor, a target number, and a mode select (manage / monitor / off). A master **Management** switch pauses all control.
-
-## Actions
-
-- **`aeolus.recalibrate`** — clears observed/learned actuator effectiveness for an entry. Field: `config_entry_id`.
+Adding or removing a Space or Actuator takes effect live, without reloading the entry; edits to an existing one are re-parsed and applied immediately. No restarts.
 
 ## Supported devices
 
-Aeolus is a **calculated** integration: it does not talk to any hardware directly. Instead it composes entities that already exist in your Home Assistant instance, so it works with **any** device whose data is exposed through a standard HA entity.
+Aeolus is a **calculated** integration: it talks to no hardware directly and needs no cloud. It composes entities that already exist in your Home Assistant instance, so it works with **any** device exposed as a standard HA entity.
 
 **Sources it reads (per Space):**
 
@@ -91,9 +85,9 @@ Aeolus is a **calculated** integration: it does not talk to any hardware directl
 
 Aeolus never modifies or reconfigures the entities it reads or controls; it only reads their state and calls their standard `turn_on` / `turn_off` / `set_percentage` / `open_cover` / `close_cover` services.
 
-## Supported functions
+## Entities
 
-Per **Space** (a device named after the zone), Aeolus creates:
+Per **Space** (a device named after the zone):
 
 | Platform | Entity | Purpose |
 | --- | --- | --- |
@@ -114,9 +108,15 @@ Per **manager** (the single Aeolus device):
 | --- | --- | --- |
 | `switch` | **Management** | Master on/off for all Aeolus control. *(config)* |
 
+Every operator-relevant decision — actuator on/off with the driving space and tier, override yields, veto engage/clear, runtime caps — also fires an `aeolus_action` event, appears humanized in the **Logbook**, and is retained in a restart-surviving action history included in the diagnostics download.
+
 ## How data updates
 
 Aeolus is **push / event-driven — it does not poll**. It subscribes to `state_changed` and `state_reported` events for every configured source sensor and recomputes the affected Space's smoothed value, slope, and ACH the moment a reading arrives. A bounded **control tick runs every 60 s** to re-evaluate ventilation demand and refresh status/explainability even when no source has changed. Actuator state is likewise watched via `state_changed` so a manual/automation override is detected and yielded to immediately (or after a configurable confirmation delay for flappy cloud devices).
+
+## Actions
+
+- **`aeolus.recalibrate`** — clears observed/learned actuator effectiveness for an entry. Field: `config_entry_id`. *(Currently a registered stub — the reset lands with the auto-calibration feature.)*
 
 ## Use cases
 
@@ -173,10 +173,9 @@ entities:
 - **Single manager instance.** One Aeolus config entry per Home Assistant; all Spaces and Actuators live under it as subentries.
 - **`Room volume (ft³)` is currently unused.** It is reserved for the planned occupancy/generation (equilibrium-CO₂) estimate. The air-change-rate readout is gap-normalized and does not need volume.
 - **`aeolus.recalibrate` is a stub.** Observed/learned-gain reset lands with the auto-calibration feature; the action is registered but does not yet clear gains.
-- **Induced/pressure edges + escalation are deferred to v1.1.** The current control loop arbitrates over `direct` actuators only; pressure-mediated (induced) coupling and direct→induced escalation, plus occupancy and radon/combustion (CAZ) vetoes, are planned.
+- **Induced/pressure edges + escalation are not yet wired in.** The control loop arbitrates over `direct` actuators only; pressure-mediated (induced) coupling and direct→induced escalation, plus occupancy and radon/combustion (CAZ) vetoes, are planned.
 - **Continuous-run cap is a fixed 120 minutes.** An actuator running continuously for 120 minutes is force-stopped as a baseline safety cap (it then re-engages on the next cycle if still demanded). This cap is not yet user-configurable.
-- **Filtration removes particulates, never CO₂.** A `filter`-mechanism actuator is rejected for CO₂ duty by design.
-- **CO₂ is removed only by air exchange.** Aeolus reports ACH precisely because filtration does nothing for CO₂ — see *Why this isn't "just a CO₂ automation"* above.
+- **Filtration removes particulates, never CO₂.** A `filter`-mechanism actuator is rejected for CO₂ duty by design — see *Your thermostat has a brain* above.
 
 ## Troubleshooting
 
@@ -186,10 +185,33 @@ entities:
 - **Reason reads *"outdoor-air quality veto"*.** The configured outdoor PM sensor is above the veto threshold, so outdoor-air ventilation is blocked. Lower-risk options: assign a filtered intake (raise the actuator's filter efficiency) or relax the threshold.
 - **A configured sensor/actuator was deleted or renamed.** Aeolus raises a **repair issue** ("Settings → Repairs") naming the missing entity; reconfigure the affected Space/Actuator to point at the new entity.
 - **The fan turns off on its own.** If the load has an internal auto-off timer while its switch keeps reporting `on`, set the actuator's **Re-arm interval** so Aeolus re-sends the ON command periodically.
+- **Why did it do that?** Open the **Logbook** — every Aeolus decision is logged with its cause — or download diagnostics for the full action history and per-space state.
 
 ## Removal
 
 Delete the **Aeolus** integration entry from Settings → Devices & Services (this removes its subentries, devices, and entities). For a manual install, also delete `custom_components/aeolus/` and restart. Aeolus never modifies the entities it reads or controls, so removing it simply stops the automatic ventilation control.
+
+## Development
+
+The repo carries the full engineering spec and history:
+
+- **[REQUIREMENTS.md](REQUIREMENTS.md)** — the versioned requirements specification, from building-physics backbone to per-requirement acceptance criteria.
+- **[docs/SCAFFOLD.md](docs/SCAFFOLD.md)** — repository structure, module responsibilities, and the Quality-Scale traceability.
+- **[CHANGELOG.md](CHANGELOG.md)** — every release, with the reasoning.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate   # Python 3.14+
+pip install -r requirements_test.txt
+python -m pytest                                     # from the repo root
+```
+
+CI runs `ruff`, `mypy --strict`, and the full test suite (30 suites, 90 % coverage gate) on Python 3.14, plus a syntax-floor compile and hassfest + HACS validation, on every push and PR.
+
+**Quality scale: Platinum** — every Bronze/Silver/Gold/Platinum rule is complete or formally exempt (`quality_scale.yaml`): fully async, push-driven, dependency-free local compute, strict typing. Brand assets ship in-package at `custom_components/aeolus/brand/` and are served by HA's Brands Proxy.
+
+## Credits
+
+The smoothing/slope approach is grounded in [Versatile Thermostat](https://github.com/jmcollin78/versatile_thermostat)'s time-aware EMA — Aeolus aims to do for air what it does for heat.
 
 ## License
 
