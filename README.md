@@ -55,7 +55,7 @@ Aeolus requires Home Assistant 2026.7 or later (config subentries, `UnitOfDensit
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jasonjhofmann&repository=aeolus&category=integration)
 
-1. Click the badge above, or add `https://github.com/jasonjhofmann/aeolus` in HACS as a custom repository of type **Integration**.
+1. Click the My Home Assistant badge, or add `https://github.com/jasonjhofmann/aeolus` in HACS as a custom repository of type **Integration**.
 2. Install **Aeolus**.
 3. Restart Home Assistant.
 4. Go to **Settings > Devices & Services > Add integration** and select **Aeolus**, or click:
@@ -64,7 +64,7 @@ Aeolus requires Home Assistant 2026.7 or later (config subentries, `UnitOfDensit
 
 ### Manual installation
 
-Copy `custom_components/aeolus/` into your Home Assistant `config/custom_components/` directory, restart, and add the integration as in step 4 above.
+Copy `custom_components/aeolus/` into your Home Assistant `config/custom_components/` directory, restart, then go to **Settings > Devices & Services > Add integration** and select **Aeolus**.
 
 ## Configuration
 
