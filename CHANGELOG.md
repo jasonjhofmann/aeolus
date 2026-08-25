@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- README: named the HACS badge and repeated the add-integration menu path in
+  the manual-install section, replacing directional "above" references
+  (docs-only, per the Google style guide's ban on directional cross-references).
+
 ## [0.7.1] - 2026-08-24
 
 Documentation-only release: the README rewritten for the HACS default-store
