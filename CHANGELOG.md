@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-24
+
+Documentation-only release: the README rewritten for the HACS default-store
+submission, with live screenshots. No code change.
+
 ### Changed
 - **README style pass for the HACS submission** (docs only). Rewrote the prose
   to read plainly and follow the Google developer documentation style guide
