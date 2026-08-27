@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-27
+
 ### Changed
+- **Repository CI/workflow hardening only — no integration code changes.**
+  Gate the @claude workflows on the triggering actor having write access,
+  cite the entrypoint the pinned action actually runs (`run.ts`), and stop
+  running the automated review on Dependabot PRs.
 - README: named the HACS badge and repeated the add-integration menu path in
   the manual-install section, replacing directional "above" references
   (docs-only, per the Google style guide's ban on directional cross-references).
