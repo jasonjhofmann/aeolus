@@ -65,7 +65,9 @@ async def test_add_space_subentry_live(hass: HomeAssistant) -> None:
 
     # Its device and entities exist.
     assert (
-        dr.async_get(hass).async_get_device(identifiers={(DOMAIN, sub.subentry_id)})
+        dr.async_get(hass).async_get_device_by_identifier(
+            (DOMAIN, sub.subentry_id), entry.entry_id
+        )
         is not None
     )
     reg = er.async_get(hass)
@@ -81,7 +83,10 @@ async def test_remove_space_subentry_live(hass: HomeAssistant) -> None:
     entry = await _setup(hass)
     engine_before = entry.runtime_data.engine
     sid = next(iter(engine_before.spaces))
-    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, sid)}) is not None
+    assert (
+        dr.async_get(hass).async_get_device_by_identifier((DOMAIN, sid), entry.entry_id)
+        is not None
+    )
 
     hass.config_entries.async_remove_subentry(entry, sid)
     await hass.async_block_till_done()
@@ -89,7 +94,10 @@ async def test_remove_space_subentry_live(hass: HomeAssistant) -> None:
     # No reload; engine dropped the Space; HA cleared its device + entities.
     assert entry.runtime_data.engine is engine_before
     assert sid not in entry.runtime_data.engine.spaces
-    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, sid)}) is None
+    assert (
+        dr.async_get(hass).async_get_device_by_identifier((DOMAIN, sid), entry.entry_id)
+        is None
+    )
 
 
 async def test_add_actuator_wires_co2_setpoint_live(hass: HomeAssistant) -> None:
@@ -146,8 +154,10 @@ async def test_async_remove_config_entry_device(hass: HomeAssistant) -> None:
     entry = await _setup(hass)
     sid = next(iter(entry.runtime_data.engine.spaces))
     dev_reg = dr.async_get(hass)
-    space_dev = dev_reg.async_get_device(identifiers={(DOMAIN, sid)})
-    manager_dev = dev_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    space_dev = dev_reg.async_get_device_by_identifier((DOMAIN, sid), entry.entry_id)
+    manager_dev = dev_reg.async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
     assert space_dev is not None and manager_dev is not None
 
     # Live Space device + manager device are protected from manual deletion.
