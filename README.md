@@ -243,7 +243,7 @@ pip install -r requirements_test.txt
 python -m pytest                                     # from the repo root
 ```
 
-CI runs `ruff`, `mypy --strict`, and the full test suite (30 suites, 90% coverage gate) on Python 3.14, plus a syntax-floor compile and hassfest and HACS validation, on every push and pull request.
+CI runs `ruff`, `mypy --strict` (against the Home Assistant 2026.7.0 floor), and the full test suite (31 suites, 90% coverage gate) on Python 3.14, plus a syntax-floor compile and hassfest and HACS validation, on every push and pull request.
 
 The integration declares Platinum on the [integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/). Every Bronze, Silver, Gold, and Platinum rule is either complete or formally exempt in `quality_scale.yaml`. Brand assets ship in the package at `custom_components/aeolus/brand/` and are served by the Brands Proxy.
 

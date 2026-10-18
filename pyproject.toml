@@ -26,10 +26,11 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
 allowed-confusables = ["×", "–", "−", "α"]
 
 [tool.mypy]
-# Analyzes the code against the INSTALLED Home Assistant core. With the HA 2026.7 floor
-# the SUPPORT floor is also 3.14 (ruff target-version above), so these two now coincide.
-# They remain distinct knobs — ruff = the syntax we emit (floor); mypy = the runtime we
-# type-check against (latest) — and will diverge again when HA's Python floor moves.
+# Analyzes the code against the INSTALLED Home Assistant core; CI installs the declared
+# floor (HA 2026.7.0, see ci.yml for why not latest). With that floor the SUPPORT floor
+# is also Python 3.14 (ruff target-version above), so these two now coincide. They
+# remain distinct knobs — ruff = the syntax we emit; mypy = the Python of the HA we
+# type-check against — and will diverge again when HA's Python floor moves.
 python_version = "3.14"
 strict = true
 warn_unused_ignores = true

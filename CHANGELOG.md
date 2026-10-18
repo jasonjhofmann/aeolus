@@ -4,9 +4,36 @@ All notable changes to the Aeolus integration are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.7.3] - 2026-10-18
+
+### Fixed
+- **Aeolus no longer rewrites entity IDs on setup.** `_migrate_entity_ids` ran
+  from `async_setup_entry`, so on every restart, reload, and subentry reconfigure
+  it renamed each Space entity back to `<domain>.<space slug>_<tail>`. A user's
+  own entity-ID change was reverted on the next restart, renaming a Space
+  renamed all of its entity IDs, and five IDs a fresh install generates were
+  rewritten after the first restart because their translated names do not match
+  the unique-ID suffix (`managed_aqi_trend`, `managed_level`,
+  `managed_level_slope`, `level_threshold`, `manage_level`). Reported in the
+  HACS default-store review (hacs/default#10317).
+- The migration is **removed**. Moving it behind a config-entry version bump
+  would keep code that has nothing left to migrate: it was written on 2026-06-09
+  for one install that predates every release. v0.5.0, the first release,
+  already generates the `managed_*` IDs on a fresh install, so no released
+  version ever produced the legacy IDs it renames, and that one install was
+  converted in June. Upgrading changes no entity ID. IDs the migration already
+  set stay as they are, and Aeolus no longer touches entity IDs after creation.
+- Tests: `test_entity_id_stability.py` covers a user-chosen ID surviving a
+  reload, a Space rename keeping its entity IDs, and fresh-install IDs staying
+  put across a reload (all three fail against v0.7.2). The old
+  `test_migrate_legacy_entity_ids` is removed with the migration.
 
 ### Changed
+- CI: `mypy --strict` now type-checks against the declared floor
+  (`homeassistant==2026.7.0`). HA 2026.9 moved core from voluptuous to probatio
+  and retyped schema arguments, so the newest HA rejects the voluptuous schemas
+  that 2026.7 and 2026.8 require. Runtime on the newest HA is still covered by
+  the test job.
 - Tests: migrated device-registry lookups to `async_get_device_by_identifier`
   (HA dev hard-errors the deprecated `async_get_device` in test frames).
 
