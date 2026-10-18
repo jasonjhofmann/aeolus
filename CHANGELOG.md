@@ -31,9 +31,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - CI: `mypy --strict` now type-checks against the declared floor
   (`homeassistant==2026.7.0`). HA 2026.9 moved core from voluptuous to probatio
-  and retyped schema arguments, so the newest HA rejects the voluptuous schemas
-  that 2026.7 and 2026.8 require. Runtime on the newest HA is still covered by
-  the test job.
+  and retyped schema arguments, so mypy against the newest HA flags the
+  voluptuous schemas that 2026.7 and 2026.8 require. This is a typing change
+  only: HA still accepts voluptuous schemas at runtime, and the test job still
+  runs on the newest HA.
 - Tests: migrated device-registry lookups to `async_get_device_by_identifier`
   (HA dev hard-errors the deprecated `async_get_device` in test frames).
 
