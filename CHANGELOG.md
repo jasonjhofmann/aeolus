@@ -4,7 +4,7 @@ All notable changes to the Aeolus integration are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.7.4] - 2026-10-18
 
 ### Changed
 - CI: new Minimum supported HA job, now the only mypy run. It reads the floor
