@@ -27,8 +27,9 @@ aeolus/
 ├── hacs.json                       # HACS manifest (name, HA min version, render_readme)
 ├── pyproject.toml                  # ruff + mypy(strict) + pytest config
 ├── conftest.py                     # pytest fixtures (enable_custom_integrations)
-├── .github/workflows/              # ci.yml (ruff + mypy + syntax-floor-3.14 +
-│                                   #   pytest 3.14), validate.yml (hassfest +
+├── .github/workflows/              # ci.yml (ruff + syntax-floor-3.14 + pytest
+│                                   #   3.14 + floor import/mypy; nightly),
+│                                   #   validate.yml (hassfest +
 │                                   #   HACS), claude-code-review.yml, claude.yml
 ├── requirements_test.txt           # test/dev deps (no runtime deps)
 ├── custom_components/

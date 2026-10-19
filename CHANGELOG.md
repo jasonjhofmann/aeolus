@@ -4,6 +4,17 @@ All notable changes to the Aeolus integration are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+- CI: new Minimum supported HA job, now the only mypy run. It reads the floor
+  from `hacs.json` and the integration's requirements from `manifest.json`,
+  then imports every module and runs mypy against that exact Home Assistant
+  release. It replaces the 0.7.3 lint-job step that pinned
+  `homeassistant==2026.7.0` by hand.
+- CI: the workflow also runs nightly, so a change in the latest Home Assistant
+  shows up the day it lands instead of at the next push.
+
 ## [0.7.3] - 2026-10-18
 
 ### Fixed
