@@ -4,6 +4,14 @@ All notable changes to the Aeolus integration are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.6] - 2026-10-20
+
+### Fixed
+- The actuator form's intake air-quality sensor field had no label, so the
+  add and reconfigure dialogs showed its raw key (`outdoor_aq_entity`). It
+  is now *Intake air-quality (PM) sensor*, with a description. A new test
+  checks every space and actuator form field has a label.
+
 ## [0.7.5] - 2026-10-20
 
 ### Fixed

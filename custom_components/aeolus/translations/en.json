@@ -125,6 +125,7 @@
           "title": "Add an actuator",
           "description": "An **Actuator** moves or filters air. Fans/vents/ERV/windows lower CO₂ **and** particulates; a recirculating **air purifier** (mechanism *Filter*) lowers particulates only — it does **not** remove CO₂.",
           "data": {
+            "outdoor_aq_entity": "Intake air-quality (PM) sensor",
             "name": "Name",
             "actuator_entity": "Device to control",
             "mechanism": "How it moves air",
@@ -135,6 +136,7 @@
             "override_grace_min": "Manual-override confirmation delay (min)"
           },
           "data_description": {
+            "outdoor_aq_entity": "Optional. A PM2.5 sensor at this actuator's outdoor-air intake. The outdoor-air veto uses it for this actuator instead of the space's outdoor sensor.",
             "name": "A friendly name for this device.",
             "actuator_entity": "The fan, switch, input_boolean, or cover Aeolus controls. (One actuator can drive a group later.)",
             "mechanism": "Balanced = ERV/HRV, neutral pressure. Supply = pushes outdoor air in. Exhaust = pulls air out (depressurizes). Transfer = moves air between rooms. Window = an opener/cover. Filter = recirculating air purifier (PM only, not CO₂).",
@@ -149,6 +151,7 @@
           "title": "Edit actuator",
           "description": "Update this device, how it moves air, and the spaces it serves.",
           "data": {
+            "outdoor_aq_entity": "Intake air-quality (PM) sensor",
             "name": "Name",
             "actuator_entity": "Device to control",
             "mechanism": "How it moves air",
@@ -159,6 +162,7 @@
             "override_grace_min": "Manual-override confirmation delay (min)"
           },
           "data_description": {
+            "outdoor_aq_entity": "Optional. A PM2.5 sensor at this actuator's outdoor-air intake.",
             "name": "A friendly name for this device.",
             "actuator_entity": "The fan, switch, input_boolean, or cover Aeolus turns on/off.",
             "mechanism": "Balanced = ERV/HRV. Supply = pushes outdoor air in. Exhaust = pulls air out. Transfer = between rooms. Window = opener/cover. Filter = recirculating purifier (PM only, not CO₂).",
