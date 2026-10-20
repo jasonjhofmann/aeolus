@@ -4,6 +4,24 @@ All notable changes to the Aeolus integration are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.5] - 2026-10-20
+
+### Fixed
+- README brought up to date. Install now starts from the HACS default
+  repository (listed via hacs/default#10317), and the badge says so. The
+  minimum-version note names the real reason for the 2026.7 floor
+  (`UnitOfRatio`) and points older installs at v0.6.2, the last release for
+  2025.4 to 2026.6. The actuator services list drops `set_percentage`, which
+  Aeolus never calls (a partial fan speed is `turn_on` with `percentage`).
+  The Managed sensor's attribute names now match what it actually exposes.
+  The wildfire-smoke use case no longer claims a radon or combustion-safety
+  penalty, which is still planned. CI runs on pushes to `main`, not every push.
+- `brand/README.md` no longer says to submit the artwork to
+  home-assistant/brands; Home Assistant 2026.3+ serves the in-tree copy.
+
+No integration code changes. HACS shows the README from the latest release,
+which is why this ships as one.
+
 ## [0.7.4] - 2026-10-18
 
 ### Changed

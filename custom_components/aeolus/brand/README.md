@@ -18,12 +18,11 @@ Brand cyan: **#29AFCA**. Wordmark slate: **#243B53** (light) / white (dark).
 All PNG, real alpha transparency, trimmed, centered. `dark_icon` uses a brighter
 cyan (#73CBDC = brand cyan lifted ~35% toward white) for crispness on dark UIs.
 
-## Remaining for the `brands` quality-scale rule
-Submit these to **[home-assistant/brands](https://github.com/home-assistant/brands)**
-under `custom_integrations/aeolus/` (all 8 PNGs: `icon*`, `dark_icon*`, `logo*`,
-`dark_logo*`). The brands repo runs an
-image-optimization check; run the finals through `pngquant`/`optipng` if CI asks.
-HA Core also serves this in-tree `brand/` copy for post-install icons.
+## The `brands` quality-scale rule
+Satisfied in-tree. Home Assistant 2026.3 and later serves these files from
+`custom_components/aeolus/brand/` through its Brands Proxy, so no
+home-assistant/brands pull request is needed. That repository now closes
+submissions for custom integrations automatically.
 
 Regeneration: the keying/trim/typeset steps are scripted (Pillow + numpy, venv
-`~/venvs/aeolus`); source art in `~/Documents/Home Assistant Work/Aeolus/`.
+`~/venvs/aeolus`); the source art is kept outside this repository.

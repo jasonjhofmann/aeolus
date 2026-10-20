@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/jasonjhofmann/aeolus/releases"><img src="https://img.shields.io/github/v/release/jasonjhofmann/aeolus" alt="Release"></a>
-  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-custom-41BDF5.svg" alt="HACS"></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-default-41BDF5.svg" alt="HACS: default"></a>
   <a href="https://github.com/jasonjhofmann/aeolus/actions/workflows/ci.yml"><img src="https://github.com/jasonjhofmann/aeolus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://developers.home-assistant.io/docs/core/integration-quality-scale/"><img src="https://img.shields.io/badge/quality%20scale-platinum-e5e4e2.svg" alt="Quality scale: Platinum"></a>
   <img src="https://img.shields.io/badge/Home%20Assistant-2026.7%2B-41BDF5.svg" alt="Home Assistant 2026.7+">
@@ -49,16 +49,17 @@ Planned next: humidity and moisture management (shower-steam exhaust, an over-dr
 
 ## Installation
 
-Aeolus requires Home Assistant 2026.7 or later (config subentries, `UnitOfDensity`/`UnitOfRatio`). On older versions, install [v0.6.1](https://github.com/jasonjhofmann/aeolus/releases/tag/v0.6.1) instead.
+Aeolus requires Home Assistant 2026.7 or later (it uses `UnitOfRatio`, added in 2026.7). On Home Assistant 2025.4 to 2026.6, install [v0.6.2](https://github.com/jasonjhofmann/aeolus/releases/tag/v0.6.2) instead.
 
 ### HACS (recommended)
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jasonjhofmann&repository=aeolus&category=integration)
 
-1. Click the My Home Assistant badge, or add `https://github.com/jasonjhofmann/aeolus` in HACS as a custom repository of type **Integration**.
-2. Install **Aeolus**.
-3. Restart Home Assistant.
-4. Go to **Settings > Devices & Services > Add integration** and select **Aeolus**, or click:
+Aeolus is in the HACS default repository, so you don't need to add a custom repository.
+
+1. In HACS, search for **Aeolus** and download it, or click the My Home Assistant badge.
+2. Restart Home Assistant.
+3. Go to **Settings > Devices & Services > Add integration** and select **Aeolus**, or click:
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=aeolus)
 
@@ -105,7 +106,7 @@ Actuators it controls:
 
 - `fan` (on/off and percentage), `switch`, `input_boolean`, and `cover` for windows and openers. One actuator can drive a group of same-domain entities. Mechanisms: balanced (ERV/HRV), supply, exhaust, transfer, window, and filter (a recirculating purifier, used for PM only).
 
-Aeolus never modifies or reconfigures the entities it uses. It reads their state and calls their standard `turn_on`, `turn_off`, `set_percentage`, `open_cover`, and `close_cover` services.
+Aeolus never modifies or reconfigures the entities it uses. It reads their state and calls their standard `turn_on` (with `percentage` for a partial fan speed), `turn_off`, `open_cover`, and `close_cover` services.
 
 ## Entities
 
@@ -113,7 +114,7 @@ Per space (a device named after the zone):
 
 | Platform | Entity | Purpose |
 | --- | --- | --- |
-| `sensor` | **Managed `<metric>`** (one per configured metric) | Time-smoothed (EMA) value of the zone's CO₂, PM, or AQI. Carries `slope`, `effective_ach`, `time_to_target`, `status`, `reason`, and the live tier ladder as attributes. |
+| `sensor` | **Managed `<metric>`** (one per configured metric) | Time-smoothed (EMA) value of the zone's CO₂, PM, or AQI. Carries the raw value, the slope per minute (`co2_slope_per_min` or `slope_per_min`), and the live tier ladder (`tiers`) as attributes. Managed CO₂ also carries `effective_ach`, `time_to_target_min`, `status`, `reason`, `active_actuators`, and `driving_metrics`. |
 | `sensor` | **Managed `<metric>` slope** | Signed rate of change per minute. *(diagnostic, disabled by default)* |
 | `sensor` | **Managed air change rate** (CO₂ only) | Concentration-normalized effective ACH (1/h). *(diagnostic)* |
 | `sensor` | **Status reason** | Plain-language explanation of why Aeolus is or isn't acting. *(diagnostic)* |
@@ -160,7 +161,7 @@ Aeolus doesn't poll. It subscribes to `state_changed` and `state_reported` event
 
 - Hold a bedroom or office below a CO₂ target by cycling an exhaust fan, ERV, or window opener, with a deadband to prevent short-cycling.
 - Let one ERV serve several rooms. Aeolus models the shared actuator and arbitrates demand across the spaces.
-- Keep wildfire smoke out. The outdoor air-quality veto blocks ventilation while the outdoor PM sensor is above your threshold, and depressurizing mechanisms are penalized where they would cause radon or combustion-safety problems.
+- Keep wildfire smoke out. The outdoor air-quality veto blocks ventilation while the outdoor PM sensor is above your threshold.
 - Drive a range hood at 20% when PM2.5 passes 30 and everything at 100% when it passes 80, then ramp back down as the air clears.
 - Re-arm a fan whose internal timer turns it off while its switch keeps reporting `on`.
 
@@ -243,7 +244,7 @@ pip install -r requirements_test.txt
 python -m pytest                                     # from the repo root
 ```
 
-CI runs `ruff` and the full test suite (31 suites, 90% coverage gate) on Python 3.14 against the latest Home Assistant, plus a syntax-floor compile, a minimum-supported-version job that imports every module and runs `mypy --strict` against the Home Assistant release declared in `hacs.json`, and hassfest and HACS validation. It runs on every push and pull request, and nightly.
+CI runs `ruff` and the full test suite (31 suites, 90% coverage gate) on Python 3.14 against the latest Home Assistant, plus a syntax-floor compile, a minimum-supported-version job that imports every module and runs `mypy --strict` against the Home Assistant release declared in `hacs.json`, and hassfest and HACS validation. It runs on every push to `main`, on every pull request, and nightly.
 
 The integration declares Platinum on the [integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/). Every Bronze, Silver, Gold, and Platinum rule is either complete or formally exempt in `quality_scale.yaml`. Brand assets ship in the package at `custom_components/aeolus/brand/` and are served by the Brands Proxy.
 
